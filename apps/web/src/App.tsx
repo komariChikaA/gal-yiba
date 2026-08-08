@@ -137,9 +137,13 @@ interface RoomSnapshot {
       status: string;
       guessCount: number;
       guessStatuses: string[];
+      guessDetails: Array<{
+        titleStatus: string;
+        comparisonStatuses: string[];
+      }>;
       finishedAt: string | null;
     }>;
-  } | null;
+    };
   winnerPlayerId: string | null;
   matchWinnerPlayerId: string | null;
   scores: Array<{ playerId: string; wins: number }>;
@@ -1647,24 +1651,28 @@ export function App() {
                         <small>{isSelf ? "自己" : "对手"}</small>
                         <span>{player?.nickname ?? "玩家"}</span>
                         <span
-                          className="duel-lights"
+                          className="duel-records"
                           aria-label={
                             isSelf
-                              ? "你的猜测进度"
-                              : "对手的猜测进度（仅显示颜色）"
+                              ? "你的猜测记录"
+                              : "对手的猜测记录（仅显示颜色）"
                           }
                         >
-                          {Array.from(
-                            { length: room.rules.maxGuesses },
-                            (_, index) => (
-                              <i
-                                key={index}
-                                className={
-                                  playerProgress.guessStatuses[index] ?? ""
-                                }
-                              />
-                            ),
-                          )}
+                          {playerProgress.guessDetails.map((detail, index) => (
+                            <span
+                              key={index}
+                              className={`duel-record ${detail.titleStatus}`}
+                            >
+                              <i className="duel-record-head" />
+                              <span className="duel-record-chips">
+                                {detail.comparisonStatuses.map(
+                                  (status, chipIndex) => (
+                                    <i key={chipIndex} className={status} />
+                                  ),
+                                )}
+                              </span>
+                            </span>
+                          ))}
                         </span>
                         <i>
                           {playerProgress.guessCount} / {room.rules.maxGuesses}{" "}

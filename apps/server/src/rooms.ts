@@ -164,6 +164,12 @@ function snapshot(room: MutableRoom): RoomSnapshot {
             status: game.status,
             guessCount: game.guesses.length,
             guessStatuses: game.guesses.map((guess) => guess.titleStatus),
+            guessDetails: game.guesses.map((guess) => ({
+              titleStatus: guess.titleStatus,
+              comparisonStatuses: guess.comparison.map(
+                (comparison) => comparison.status,
+              ),
+            })),
             finishedAt: game.finishedAt,
           })),
         }
