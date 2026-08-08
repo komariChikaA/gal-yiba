@@ -45,6 +45,16 @@ export interface RoomRoundSnapshot {
     playerId: string;
     status: GameSession["status"];
     guessCount: number;
+    guessStatuses: string[];
+    guessDetails: Array<{
+      guessNumber: number;
+      titleStatus: string;
+      comparisons: Array<{
+        status: string;
+        hint: string | null;
+        direction: string | null;
+      }>;
+    }>;
     finishedAt: string | null;
   }>;
 }
@@ -165,10 +175,13 @@ function snapshot(room: MutableRoom): RoomSnapshot {
             guessCount: game.guesses.length,
             guessStatuses: game.guesses.map((guess) => guess.titleStatus),
             guessDetails: game.guesses.map((guess) => ({
+              guessNumber: guess.guessNumber,
               titleStatus: guess.titleStatus,
-              comparisonStatuses: guess.comparison.map(
-                (comparison) => comparison.status,
-              ),
+              comparisons: guess.comparison.map((comparison) => ({
+                status: comparison.status,
+                hint: comparison.hint ?? null,
+                direction: comparison.direction ?? null,
+              })),
             })),
             finishedAt: game.finishedAt,
           })),

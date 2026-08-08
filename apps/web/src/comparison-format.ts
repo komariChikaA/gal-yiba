@@ -43,12 +43,22 @@ export function formatComparisonValue(result: ComparisonResult): string {
   return enumValueLabels[value] ?? value;
 }
 
-export function formatComparisonMarker(result: ComparisonResult): string {
+type MarkerInput = {
+  hint?: ComparisonResult["hint"] | null;
+};
+
+export function formatComparisonMarker(result: MarkerInput): string {
   return result.hint === "more" ? "+" : result.hint === "fewer" ? "−" : "";
 }
 
+type SymbolInput = {
+  status: ComparisonResult["status"];
+  hint?: ComparisonResult["hint"] | null;
+  direction?: ComparisonResult["direction"] | null;
+};
+
 /** 徽章符号：优先数量提示（+ −），其次方向（↑ ↓），最后按状态兜底。 */
-export function comparisonSymbol(result: ComparisonResult): string {
+export function comparisonSymbol(result: SymbolInput): string {
   const quantity = formatComparisonMarker(result);
   if (quantity) return quantity;
   if (result.direction === "higher") return "↑";

@@ -2628,60 +2628,26 @@ button {
   font-size: 10px;
   letter-spacing: 0.1em;
 }
-/* 1v1 猜测记录卡（颜色可见、文字留白） */
-.duel-records {
+/* 1v1 双栏记录：左我右敌 */
+.guess-history.duel-history {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.duel-column {
   display: grid;
-  gap: 6px;
-  margin-top: 10px;
+  gap: 8px;
+  align-content: start;
 }
-.duel-record {
-  display: grid;
-  gap: 4px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 5px 6px;
-  background: color-mix(in srgb, var(--surface-solid) 62%, transparent);
+.duel-column.opponent article {
+  opacity: 0.96;
 }
-.duel-record .duel-record-head {
-  display: block;
-  height: 9px;
-  border-radius: 5px;
-  background: var(--neutral);
+.duel-column.opponent .comparison-value,
+.duel-column.opponent small {
+  color: transparent;
+  user-select: none;
 }
-.duel-record.title-partial .duel-record-head {
-  background: var(--warning);
-}
-.duel-record.title-exact .duel-record-head {
-  background: var(--success);
-}
-.duel-record.title-miss .duel-record-head {
-  background: color-mix(in srgb, var(--danger) 55%, var(--muted));
-}
-.duel-record-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-}
-.duel-record-chips i {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--neutral);
-}
-.duel-record-chips i.exact {
-  background: var(--success);
-}
-.duel-record-chips i.partial {
-  background: var(--warning);
-}
-.duel-record-chips i.miss {
-  background: color-mix(in srgb, var(--danger) 55%, var(--muted));
-}
-.duel-record-chips i.unknown {
-  background: repeating-linear-gradient(
-    45deg,
-    var(--line-strong) 0 2px,
-    transparent 2px 4px
-  );
+@media (max-width: 980px) {
+  .guess-history.duel-history {
+    grid-template-columns: 1fr;
+  }
 }

@@ -138,10 +138,14 @@ interface RoomSnapshot {
       guessCount: number;
       guessStatuses: string[];
       guessDetails: Array<{
+        guessNumber: number;
         titleStatus: string;
-        comparisonStatuses: string[];
+        comparisons: Array<{
+          status: "exact" | "partial" | "miss" | "unknown";
+          hint: "more" | "fewer" | null;
+          direction: "higher" | "lower" | null;
+        }>;
       }>;
-      finishedAt: string | null;
     }>;
     };
   winnerPlayerId: string | null;
@@ -331,6 +335,14 @@ export function App() {
   /** 多人局中猜测次数用尽但本轮尚未结束：不揭晓答案，继续倒计时。 */
   const exhausted =
     activeGame?.status === "lost" && room?.phase === "active";
+
+  /** 1v1 对手的猜测记录（颜色可见、文字留白）。 */
+  const duelOpponent =
+    room?.rules.mode === "duel"
+      ? room.round?.players.find(
+          (player) => player.playerId !== session?.playerId,
+        ) ?? null
+      : null;
   useEffect(() => {
     localStorage.setItem("gal-yiba-color-theme", colorTheme);
     document.documentElement.style.colorScheme =
@@ -1649,30 +1661,8 @@ export function App() {
                         className={isSelf ? "self" : "opponent"}
                       >
                         <small>{isSelf ? "自己" : "对手"}</small>
-                        <span>{player?.nickname ?? "玩家"}</span>
-                        <span
-                          className="duel-records"
-                          aria-label={
-                            isSelf
-                              ? "你的猜测记录"
-                              : "对手的猜测记录（仅显示颜色）"
-                          }
-                        >
-                          {playerProgress.guessDetails.map((detail, index) => (
-                            <span
-                              key={index}
-                              className={`duel-record ${detail.titleStatus}`}
-                            >
-                              <i className="duel-record-head" />
-                              <span className="duel-record-chips">
-                                {detail.comparisonStatuses.map(
-                                  (status, chipIndex) => (
-                                    <i key={chipIndex} className={status} />
-                                  ),
-                                )}
-                              </span>
-                            </span>
-                          ))}
+                        <span className="duel-nickname">
+                          {player?.nickname ?? "玩家"}
                         </span>
                         <i>
                           {playerProgress.guessCount} / {room.rules.maxGuesses}{" "}
@@ -1699,47 +1689,97 @@ export function App() {
               </div>
             ) : null}
 
-            <div className="guess-history">
+            <div
+              className={
+                duelOpponent ? "guess-history duel-history" : "guess-history"
+              }
+            >
               {activeGame.guesses.length === 0 ? (
                 <p>第一次猜测后，比较结果会出现在这里。</p>
               ) : (
-                activeGame.guesses
-                  .slice()
-                  .reverse()
-                  .map((guess) => (
-                    <article key={guess.visualNovelId}>
-                      <header className={`title-${guess.titleStatus}`}>
-                        <b>{guess.title}</b>
-                        <span>
-                          {guess.titleStatus === "partial" && "同系列 · "}
-                          {guess.titleStatus === "exact" && "答案 · "}第{" "}
-                          {guess.guessNumber} 次
-                        </span>
-                      </header>
-                      <div>
-                        {guess.comparison.map((result) => (
-                          <span
-                            key={result.key}
-                            className={`comparison-card ${result.status}`}
-                          >
-                            <small>{comparisonLabels[result.key]}</small>
-                            <strong
-                              className="comparison-value"
-                              title={formatComparisonValue(result)}
-                            >
-                              {formatComparisonValue(result)}
-                            </strong>
-                            <span
-                              className={`comparison-verdict ${result.status}`}
-                              aria-label={formatComparisonAriaLabel(result)}
-                            >
-                              {comparisonSymbol(result)}
+                <>
+                  <div className="duel-column">
+                    {activeGame.guesses
+                      .slice()
+                      .reverse()
+                      .map((guess) => (
+                        <article key={guess.visualNovelId}>
+                          <header className={`title-${guess.titleStatus}`}>
+                            <b>{guess.title}</b>
+                            <span>
+                              {guess.titleStatus === "partial" && "同系列 · "}
+                              {guess.titleStatus === "exact" && "答案 · "}第{" "}
+                              {guess.guessNumber} 次
                             </span>
-                          </span>
+                          </header>
+                          <div>
+                            {guess.comparison.map((result) => (
+                              <span
+                                key={result.key}
+                                className={`comparison-card ${result.status}`}
+                              >
+                                <small>{comparisonLabels[result.key]}</small>
+                                <strong
+                                  className="comparison-value"
+                                  title={formatComparisonValue(result)}
+                                >
+                                  {formatComparisonValue(result)}
+                                </strong>
+                                <span
+                                  className={`comparison-verdict ${result.status}`}
+                                  aria-label={formatComparisonAriaLabel(result)}
+                                >
+                                  {comparisonSymbol(result)}
+                                </span>
+                              </span>
+                            ))}
+                          </div>
+                        </article>
+                      ))}
+                  </div>
+                  {duelOpponent && (
+                    <div className="duel-column opponent">
+                      {duelOpponent.guessDetails
+                        .slice()
+                        .reverse()
+                        .map((detail) => (
+                          <article key={detail.guessNumber}>
+                            <header className={`title-${detail.titleStatus}`}>
+                              <b aria-hidden="true">　</b>
+                              <span>对手 · 第 {detail.guessNumber} 次</span>
+                            </header>
+                            <div>
+                              {detail.comparisons.map((comparison, index) => (
+                                <span
+                                  key={index}
+                                  className={`comparison-card ${comparison.status}`}
+                                >
+                                  <small aria-hidden="true">　</small>
+                                  <strong
+                                    className="comparison-value"
+                                    aria-hidden="true"
+                                  >
+                                    　
+                                  </strong>
+                                  <span
+                                    className={`comparison-verdict ${comparison.status}`}
+                                    aria-label="对手的比较结果（内容隐藏）"
+                                  >
+                                    {comparisonSymbol({
+                                      status: comparison.status,
+                                      hint: comparison.hint ?? undefined,
+                                      direction:
+                                        comparison.direction ?? undefined,
+                                    })}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          </article>
                         ))}
-                      </div>
-                    </article>
-                  ))
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </section>

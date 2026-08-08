@@ -57,33 +57,13 @@ describe("formatCountdown", () => {
 
 describe("formatComparisonMarker", () => {
   it("only shows quantity signs", () => {
-    expect(
-      formatComparisonMarker({
-        key: "scenarioWriter",
-        status: "partial",
-        hint: "more",
-        guessValue: ["A", "B"],
-      }),
-    ).toBe("+");
-    expect(
-      formatComparisonMarker({
-        key: "vndbVoteCount",
-        status: "partial",
-        basis: "tier",
-        guessValue: 900,
-      }),
-    ).toBe("");
+    expect(formatComparisonMarker({ hint: "more" })).toBe("+");
+    expect(formatComparisonMarker({ hint: "fewer" })).toBe("−");
+    expect(formatComparisonMarker({})).toBe("");
   });
 
   it("leaves curated company relationships as plain yellow", () => {
-    expect(
-      formatComparisonMarker({
-        key: "developer",
-        status: "partial",
-        hint: "same_family",
-        guessValue: ["Key"],
-      }),
-    ).toBe("");
+    expect(formatComparisonMarker({ hint: "same_family" })).toBe("");
   });
 
   it("keeps a non-visible accessibility description", () => {
@@ -101,52 +81,29 @@ describe("formatComparisonMarker", () => {
 describe("comparisonSymbol", () => {
   it("prefers the quantity sign over the status fallback", () => {
     expect(
-      comparisonSymbol({
-        key: "developer",
-        status: "partial",
-        hint: "more",
-        guessValue: ["A"],
-      }),
+      comparisonSymbol({ status: "partial", hint: "more" }),
     ).toBe("+");
     expect(
-      comparisonSymbol({
-        key: "developer",
-        status: "miss",
-        hint: "fewer",
-        guessValue: [],
-      }),
+      comparisonSymbol({ status: "miss", hint: "fewer" }),
     ).toBe("−");
   });
 
   it("shows the direction arrow before the status fallback", () => {
     expect(
-      comparisonSymbol({
-        key: "releaseYear",
-        status: "partial",
-        direction: "higher",
-        guessValue: 2016,
-      }),
+      comparisonSymbol({ status: "partial", direction: "higher" }),
     ).toBe("↑");
     expect(
-      comparisonSymbol({
-        key: "vndbRating",
-        status: "miss",
-        direction: "lower",
-        guessValue: 8.1,
-      }),
+      comparisonSymbol({ status: "miss", direction: "lower" }),
     ).toBe("↓");
   });
 
   it("falls back to a per-status symbol", () => {
     const statuses = ["exact", "partial", "miss", "unknown"] as const;
-    expect(
-      statuses.map((status) =>
-        comparisonSymbol({
-          key: "platforms",
-          status,
-          guessValue: ["PC"],
-        }),
-      ),
-    ).toEqual(["✓", "≈", "×", "?"]);
+    expect(statuses.map((status) => comparisonSymbol({ status }))).toEqual([
+      "✓",
+      "≈",
+      "×",
+      "?",
+    ]);
   });
 });
