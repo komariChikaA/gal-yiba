@@ -62,6 +62,57 @@ describe("VndbClient", () => {
           more: false,
           results: [{ id: "v17" }],
         }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          more: false,
+          results: [
+            {
+              id: "c1",
+              name: "Primary Heroine",
+              sex: ["f", "f"],
+              vns: [{ id: "v17", role: "primary", spoiler: 0 }],
+              traits: [
+                {
+                  id: "i6",
+                  name: "Brown",
+                  group_name: "Hair",
+                  spoiler: 0,
+                  lie: false,
+                },
+                {
+                  id: "i7",
+                  name: "Blue",
+                  group_name: "Hair",
+                  spoiler: 0,
+                  lie: false,
+                },
+                {
+                  id: "i10",
+                  name: "Red",
+                  group_name: "Hair",
+                  spoiler: 1,
+                  lie: false,
+                },
+              ],
+            },
+            {
+              id: "c2",
+              name: "Side Character",
+              sex: ["f", "f"],
+              vns: [{ id: "v17", role: "side", spoiler: 0 }],
+              traits: [
+                {
+                  id: "i8",
+                  name: "Pink",
+                  group_name: "Hair",
+                  spoiler: 0,
+                  lie: false,
+                },
+              ],
+            },
+          ],
+        }),
       );
     const page = await new VndbClient({ fetcher }).listVisualNovels();
     expect(page.items[0]?.rating).toBe(8.2);
@@ -69,10 +120,17 @@ describe("VndbClient", () => {
     expect(page.items[0]?.developers).toEqual(["KID"]);
     expect(page.items[0]?.ageRating).toBe("restricted");
     expect(page.items[0]?.animeAdaptation).toBe("has_adaptation");
+    expect(page.items[0]?.heroineHairColors).toEqual(["blue", "brown"]);
     expect(page.items[0]?.tags[0]?.category).toBe("cont");
     expect(fetcher.mock.calls[1]?.[0]).toContain("/release");
     expect(fetcher.mock.calls[2]?.[0]).toContain("/vn");
     expect(fetcher.mock.calls[2]?.[1]?.body).toContain('"has_anime"');
+    expect(fetcher.mock.calls[3]?.[0]).toContain("/character");
+    expect(fetcher.mock.calls[3]?.[1]?.body).toContain('"primary"');
+    expect(
+      (page.items[0]?.raw as { heroineHairEvidence: unknown[] })
+        .heroineHairEvidence,
+    ).toHaveLength(1);
   });
 });
 

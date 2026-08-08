@@ -11,6 +11,7 @@ console.log(
     source: first.source,
     sourceId: first.sourceId,
     hasTitle: first.title.length > 0,
+    heroineHairColors: first.heroineHairColors,
     animeAdaptation: first.animeAdaptation,
     ageRating: first.ageRating,
     hasMore: page.hasMore,

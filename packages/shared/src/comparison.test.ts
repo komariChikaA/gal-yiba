@@ -10,7 +10,7 @@ function visualNovel(overrides: Partial<VisualNovel> = {}): VisualNovel {
     developer: ["Studio A"],
     publisher: ["Publisher A"],
     scenarioWriter: ["Writer A"],
-    heroineHairColor: "black",
+    heroineHairColor: ["black"],
     releaseYear: 2020,
     playtime: "medium",
     vndbRating: 8,
@@ -39,6 +39,21 @@ describe("compareField", () => {
       status: "partial",
       overlap: ["romance"],
       guessValue: ["romance", "comedy"],
+    });
+  });
+
+  it("compares multiple primary heroine hair colors as a set", () => {
+    expect(
+      compareField(
+        "heroineHairColor",
+        visualNovel({ heroineHairColor: ["brown", "blue"] }),
+        visualNovel({ heroineHairColor: ["brown", "green"] }),
+      ),
+    ).toEqual({
+      key: "heroineHairColor",
+      status: "partial",
+      overlap: ["brown"],
+      guessValue: ["brown", "blue"],
     });
   });
 

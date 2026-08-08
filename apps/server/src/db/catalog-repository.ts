@@ -335,7 +335,9 @@ export class CatalogRepository {
       scenarioWriter: nullableUnique(
         records.flatMap((record) => record.scenarioWriters),
       ),
-      heroineHairColor: null,
+      heroineHairColor: vndbRecord?.heroineHairColors?.length
+        ? vndbRecord.heroineHairColors
+        : null,
       releaseYear: releaseYearMatch ? Number(releaseYearMatch[1]) : null,
       playtime:
         primary.playtime == null
@@ -364,6 +366,9 @@ export class CatalogRepository {
         scenarioWriter: provenanceFor,
         releaseYear: provenanceFor,
         playtime: provenanceFor,
+        heroineHairColor: vndbRecord?.heroineHairColors?.length
+          ? provenanceForSource("vndb")
+          : [],
         vndbRating: provenanceForSource("vndb"),
         bangumiRating: provenanceForSource("bangumi"),
         vndbVoteCount: provenanceForSource("vndb"),

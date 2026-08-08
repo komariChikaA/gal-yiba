@@ -35,6 +35,21 @@ export const defaultComparisonKeys = [
 export type Playtime = "very_short" | "short" | "medium" | "long" | "very_long";
 export type AnimeAdaptation = "none" | "has_adaptation";
 export type AgeRating = "all_ages" | "restricted" | "unknown";
+export type HeroineHairColor =
+  | "black"
+  | "blond"
+  | "blue"
+  | "brown"
+  | "cyan"
+  | "green"
+  | "grey"
+  | "multicolored"
+  | "orange"
+  | "pink"
+  | "red"
+  | "teal"
+  | "violet"
+  | "white";
 
 export interface Provenance {
   source: "vndb" | "bangumi" | "curated";
@@ -55,7 +70,7 @@ export interface VisualNovel {
   developer: string[] | null;
   publisher: string[] | null;
   scenarioWriter: string[] | null;
-  heroineHairColor: string | null;
+  heroineHairColor: HeroineHairColor[] | null;
   releaseYear: number | null;
   playtime: Playtime | null;
   vndbRating: number | null;

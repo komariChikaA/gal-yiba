@@ -24,6 +24,7 @@ const setKeys = new Set<ComparisonKey>([
   "developer",
   "publisher",
   "scenarioWriter",
+  "heroineHairColor",
   "platforms",
   "languages",
   "tags",

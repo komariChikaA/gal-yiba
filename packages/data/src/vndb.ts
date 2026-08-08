@@ -1,5 +1,30 @@
 import { requestJson, type FetchLike } from "./http.js";
-import type { PagedResult, SourceVisualNovel } from "./types.js";
+import type {
+  PagedResult,
+  SourceHeroineHairColor,
+  SourceVisualNovel,
+} from "./types.js";
+
+const hairColorByTraitId: Record<string, SourceHeroineHairColor> = {
+  i4: "black",
+  i5: "blond",
+  i7: "blue",
+  i6: "brown",
+  i919: "cyan",
+  i50: "green",
+  i956: "grey",
+  i894: "multicolored",
+  i1305: "orange",
+  i8: "pink",
+  i10: "red",
+  i926: "teal",
+  i9: "violet",
+  i11: "white",
+};
+
+const hairColorOrder = new Map(
+  Object.values(hairColorByTraitId).map((color, index) => [color, index]),
+);
 
 interface VndbTitle {
   title: string;
@@ -54,6 +79,34 @@ interface VndbAnimeResponse {
   more: boolean;
 }
 
+interface VndbCharacter {
+  id: string;
+  name: string;
+  sex: [string | null, string | null] | null;
+  vns: Array<{ id: string; role: string; spoiler: number }>;
+  traits: Array<{
+    id: string;
+    name: string;
+    group_name: string;
+    spoiler: number;
+    lie: boolean;
+  }>;
+}
+
+interface VndbCharacterResponse {
+  results: VndbCharacter[];
+  more: boolean;
+}
+
+interface HeroineHairEvidence {
+  colors: SourceHeroineHairColor[];
+  characters: Array<{
+    id: string;
+    name: string;
+    colors: SourceHeroineHairColor[];
+  }>;
+}
+
 export interface VndbClientOptions {
   baseUrl?: string;
   fetcher?: FetchLike;
@@ -92,17 +145,115 @@ export class VndbClient {
     const visualNovelIds = response.results.map((item) => item.id);
     const ageRatings = await this.loadAgeRatings(visualNovelIds);
     const animeAdaptations = await this.loadAnimeAdaptations(visualNovelIds);
+    const heroineHair = await this.loadHeroineHairColors(visualNovelIds);
     return {
       items: response.results.map((item) =>
         this.normalize(
           item,
           ageRatings.get(item.id) ?? "unknown",
           animeAdaptations.has(item.id) ? "has_adaptation" : "none",
+          heroineHair.get(item.id),
         ),
       ),
       hasMore: response.more,
       nextCursor: response.more ? String(page + 1) : null,
     };
+  }
+
+  private async loadHeroineHairColors(
+    visualNovelIds: string[],
+  ): Promise<Map<string, HeroineHairEvidence>> {
+    const charactersByVisualNovel = new Map<
+      string,
+      Map<string, HeroineHairEvidence["characters"][number]>
+    >();
+    const colorTraitFilters = Object.keys(hairColorByTraitId).map((id) => [
+      "trait",
+      "=",
+      [id, 0],
+    ]);
+
+    for (let offset = 0; offset < visualNovelIds.length; offset += 20) {
+      const ids = visualNovelIds.slice(offset, offset + 20);
+      const idSet = new Set(ids);
+      const idFilter =
+        ids.length === 1
+          ? ["id", "=", ids[0]]
+          : ["or", ...ids.map((id) => ["id", "=", id])];
+
+      for (let page = 1; ; page += 1) {
+        const response = await requestJson<VndbCharacterResponse>(
+          this.fetcher,
+          `${this.baseUrl}/character`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              filters: [
+                "and",
+                ["vn", "=", idFilter],
+                ["sex", "=", "f"],
+                ["role", "=", "primary"],
+                ["or", ...colorTraitFilters],
+              ],
+              fields:
+                "name,sex,vns{id,role,spoiler},traits{id,name,group_name,spoiler,lie}",
+              results: 100,
+              page,
+            }),
+          },
+        );
+
+        for (const character of response.results) {
+          if (character.sex?.[0] !== "f") continue;
+          const colors = [
+            ...new Set(
+              character.traits
+                .filter((trait) => trait.spoiler === 0 && !trait.lie)
+                .map((trait) => hairColorByTraitId[trait.id])
+                .filter(
+                  (color): color is SourceHeroineHairColor => color != null,
+                ),
+            ),
+          ].sort(
+            (left, right) =>
+              (hairColorOrder.get(left) ?? 99) -
+              (hairColorOrder.get(right) ?? 99),
+          );
+          if (colors.length === 0) continue;
+
+          for (const relation of character.vns) {
+            if (
+              !idSet.has(relation.id) ||
+              relation.role !== "primary" ||
+              relation.spoiler !== 0
+            )
+              continue;
+            const characters =
+              charactersByVisualNovel.get(relation.id) ?? new Map();
+            characters.set(character.id, {
+              id: character.id,
+              name: character.name,
+              colors,
+            });
+            charactersByVisualNovel.set(relation.id, characters);
+          }
+        }
+        if (!response.more) break;
+      }
+    }
+
+    return new Map(
+      [...charactersByVisualNovel].map(([visualNovelId, characters]) => {
+        const values = [...characters.values()];
+        const colors = [...new Set(values.flatMap((item) => item.colors))].sort(
+          (left, right) =>
+            (hairColorOrder.get(left) ?? 99) -
+            (hairColorOrder.get(right) ?? 99),
+        );
+        return [visualNovelId, { colors, characters: values }];
+      }),
+    );
   }
 
   private async loadAnimeAdaptations(
@@ -196,6 +347,7 @@ export class VndbClient {
     item: VndbVisualNovel,
     ageRating: "all_ages" | "restricted" | "unknown",
     animeAdaptation: "none" | "has_adaptation",
+    heroineHair?: HeroineHairEvidence,
   ): SourceVisualNovel {
     const alternativeTitles = [
       item.alttitle,
@@ -225,6 +377,7 @@ export class VndbClient {
       rating: item.rating == null ? null : item.rating / 10,
       voteCount: item.votecount,
       popularity: item.popularity,
+      heroineHairColors: heroineHair?.colors ?? [],
       animeAdaptation,
       ageRating,
       tags: item.tags.map((tag) => ({
@@ -234,7 +387,10 @@ export class VndbClient {
         spoilerLevel: Math.min(2, Math.max(0, tag.spoiler)) as 0 | 1 | 2,
         category: tag.category,
       })),
-      raw: item,
+      raw: {
+        visualNovel: item,
+        heroineHairEvidence: heroineHair?.characters ?? [],
+      },
       fetchedAt: new Date().toISOString(),
     };
   }

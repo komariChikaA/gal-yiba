@@ -6,6 +6,22 @@ export interface SourceTag {
   category?: "cont" | "ero" | "tech";
 }
 
+export type SourceHeroineHairColor =
+  | "black"
+  | "blond"
+  | "blue"
+  | "brown"
+  | "cyan"
+  | "green"
+  | "grey"
+  | "multicolored"
+  | "orange"
+  | "pink"
+  | "red"
+  | "teal"
+  | "violet"
+  | "white";
+
 export interface SourceVisualNovel {
   source: "vndb" | "bangumi";
   sourceId: string;
@@ -20,6 +36,7 @@ export interface SourceVisualNovel {
   rating: number | null;
   voteCount: number | null;
   popularity: number | null;
+  heroineHairColors?: SourceHeroineHairColor[];
   animeAdaptation?: "none" | "has_adaptation" | "unknown";
   ageRating?: "all_ages" | "restricted" | "unknown";
   tags: SourceTag[];
