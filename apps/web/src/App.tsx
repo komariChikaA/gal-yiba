@@ -168,6 +168,7 @@ interface DailyGame {
 interface SearchItem {
   id: string;
   title: string;
+  displayTitle: string;
   aliases: string[];
   developers: string[];
   match: { type: "title" | "developer"; value: string };
@@ -1440,7 +1441,14 @@ export function App() {
                           key={item.id}
                           onClick={() => submitVisualNovel(item)}
                         >
-                          <b>{item.title}</b>
+                          <b>
+                            {item.displayTitle}
+                            {item.displayTitle !== item.title && (
+                              <small className="original-title">
+                                {item.title}
+                              </small>
+                            )}
+                          </b>
                           <span>
                             {item.match.type === "developer"
                               ? `会社 · ${item.match.value}`

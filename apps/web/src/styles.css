@@ -1959,3 +1959,10 @@ footer b {
   font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
   letter-spacing: 0.12em;
 }
+.game-suggestions b .original-title {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}

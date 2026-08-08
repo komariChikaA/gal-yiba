@@ -87,3 +87,24 @@ describe("searchCatalog", () => {
     ]);
   });
 });
+
+describe("searchCatalog language priority", () => {
+  it("orders Chinese matches above Japanese at equal relevance", () => {
+    const catalog = [
+      visualNovel("ja", "Neko no Tsuki", ["Dev"], ["猫の月"]),
+      visualNovel("zh", "Mao Ri Yue", ["Dev"], ["猫日月"]),
+    ];
+    // 两者都在 index 0 命中「猫」，长度同为 3，分数相同（798）→ 中文优先。
+    const results = searchCatalog(catalog, "猫");
+    expect(results.map((item) => item.id)).toEqual(["zh", "ja"]);
+    expect(results[0]?.match.value).toBe("猫日月");
+  });
+
+  it("prefers the Chinese alias within one entry when scores tie", () => {
+    const catalog = [
+      visualNovel("1", "Neko", ["Dev"], ["猫の日", "猫日月"]),
+    ];
+    const results = searchCatalog(catalog, "猫");
+    expect(results[0]?.match.value).toBe("猫日月");
+  });
+});

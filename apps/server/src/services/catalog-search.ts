@@ -4,12 +4,49 @@ import type { VisualNovel } from "@gal-yiba/shared";
 export interface CatalogSearchItem {
   id: string;
   title: string;
+  displayTitle: string;
   aliases: string[];
   developers: string[];
   match: {
     type: "title" | "developer";
     value: string;
   };
+}
+
+/** 展示用标题：优先中文名（汉字且无假名），其次日语，最后回退原标题。 */
+function pickDisplayTitle(entry: IndexedEntry): string {
+  const preferred = [...entry.titles].sort(
+    (left, right) =>
+      languagePriority(left.original) - languagePriority(right.original),
+  )[0];
+  return preferred?.original ?? entry.title;
+}
+
+/**
+ * 命中文本的语言权重：0 中文（汉字且无假名）、1 日语（含假名）、
+ * 2 英文（拉丁字母）、3 其他。用于分数相同时把中文结果排前面。
+ */
+function languagePriority(value: string): number {
+  let kana = 0;
+  let cjk = 0;
+  let latin = 0;
+  for (const character of Array.from(value)) {
+    const code = character.codePointAt(0) ?? 0;
+    if (
+      (code >= 0x3040 && code <= 0x30ff) ||
+      (code >= 0x31f0 && code <= 0x31ff)
+    ) {
+      kana += 1;
+    } else if (code >= 0x4e00 && code <= 0x9fff) {
+      cjk += 1;
+    } else if (/[a-zA-Z]/.test(character)) {
+      latin += 1;
+    }
+  }
+  if (kana > 0) return 1;
+  if (cjk > 0) return 0;
+  if (latin > 0) return 2;
+  return 3;
 }
 
 interface IndexedCandidate {
@@ -92,7 +129,11 @@ export function searchCatalog(
     let bestValue = "";
     for (const candidate of candidates) {
       const score = cheapTextScore(query, candidate.normalized);
-      if (score > best) {
+      if (
+        score > best ||
+        (score === best &&
+          languagePriority(candidate.original) < languagePriority(bestValue))
+      ) {
         best = score;
         bestValue = candidate.original;
       }
@@ -122,7 +163,11 @@ export function searchCatalog(
     let bestValue = "";
     for (const candidate of candidates) {
       const score = fuzzyTextScore(query, candidate.normalized);
-      if (score > best) {
+      if (
+        score > best ||
+        (score === best &&
+          languagePriority(candidate.original) < languagePriority(bestValue))
+      ) {
         best = score;
         bestValue = candidate.original;
       }
@@ -170,6 +215,7 @@ export function searchCatalog(
         item: {
           id: entry.id,
           title: entry.title,
+          displayTitle: pickDisplayTitle(entry),
           aliases: entry.aliases,
           developers: entry.developers,
           match: {
@@ -183,15 +229,15 @@ export function searchCatalog(
     })
     .filter((result): result is NonNullable<typeof result> => result != null);
 
-  const rankedSorted = ranked
-    .sort(
-      (left, right) =>
-        Number(left.item.match.type === "developer") -
-          Number(right.item.match.type === "developer") ||
-        right.score - left.score ||
-        left.item.title.localeCompare(right.item.title),
-    );
-
+  const rankedSorted = ranked.sort(
+    (left, right) =>
+      Number(left.item.match.type === "developer") -
+        Number(right.item.match.type === "developer") ||
+      right.score - left.score ||
+      languagePriority(left.item.match.value) -
+        languagePriority(right.item.match.value) ||
+      left.item.title.localeCompare(right.item.title),
+  );
   const keepRelevant = (matchType: "title" | "developer") => {
     const group = rankedSorted.filter(
       (result) => result.item.match.type === matchType,
