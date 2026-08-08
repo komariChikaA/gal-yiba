@@ -2632,3 +2632,8 @@ button {
 .guess-history .comparison-verdict.partial {
   font-weight: 900;
 }
+/* 比较项选中态：背景加深，带主题色内描边 */
+.comparison-grid button.selected {
+  background: linear-gradient(135deg, var(--coral-soft), var(--mint-soft));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--coral) 40%, transparent);
+}
