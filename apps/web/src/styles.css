@@ -1173,8 +1173,8 @@ body {
   --shadow: rgba(0, 0, 0, 0.35);
   --shadow-strong: rgba(0, 0, 0, 0.5);
   --neutral: #152a52;
-  --success-ink: #8fd8bd;
-  --warning-ink: #f2d98a;
+  --success-ink: #1f5c44;
+  --warning-ink: #6d5216;
   --danger: #ff7a9c;
   background:
     radial-gradient(
@@ -2619,4 +2619,16 @@ button {
     right: 14px;
     bottom: 14px;
   }
+}
+/* 彩色判定底上的文字：加深加粗，保证夜间也醒目 */
+.guess-history article header.title-exact,
+.guess-history article header.title-partial,
+.guess-history article > div > span.exact,
+.guess-history article > div > span.partial {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.guess-history .comparison-verdict.exact,
+.guess-history .comparison-verdict.partial {
+  font-weight: 900;
 }
