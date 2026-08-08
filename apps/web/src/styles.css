@@ -187,6 +187,55 @@ button {
   gap: 12px;
   margin-top: 14px;
 }
+.entry-section {
+  margin-top: 18px;
+}
+.entry-section > span,
+.fame-rule-picker > small {
+  display: block;
+  color: #9d948b;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.mode-picker,
+.fame-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.mode-picker button,
+.fame-picker button {
+  min-height: 62px;
+  border: 1px solid #554b43;
+  background: transparent;
+  color: #e9e1d8;
+  padding: 9px;
+  text-align: left;
+}
+.mode-picker button.selected,
+.fame-picker button.selected {
+  border-color: #ff7442;
+  background: #2d211b;
+  box-shadow: inset 0 -3px #ff7442;
+}
+.mode-picker b,
+.mode-picker small,
+.fame-picker b,
+.fame-picker small {
+  display: block;
+}
+.mode-picker small,
+.fame-picker small {
+  margin-top: 5px;
+  color: #948a81;
+  font-size: 9px;
+  line-height: 1.35;
+}
+.tier-description {
+  margin: 8px 0 0;
+  color: #8f857c;
+  font-size: 10px;
+}
 .entry-actions button {
   min-height: 48px;
   border: 1px solid #554b43;
@@ -298,6 +347,11 @@ button {
   background: #ff7442;
   color: #17110e;
 }
+.lobby-actions .leave-button {
+  margin-left: auto;
+  border-color: #766b62;
+  color: #9e9389;
+}
 .lobby-actions .room-note {
   margin: 0;
 }
@@ -399,6 +453,26 @@ button {
   margin-top: 28px;
   padding-top: 24px;
   border-top: 2px solid #211b17;
+}
+.fame-rule-picker {
+  margin-bottom: 24px;
+}
+.fame-rule-picker > small {
+  color: #80746a;
+}
+.fame-rule-picker .fame-picker button {
+  color: #4d453e;
+  border-color: #b9aea2;
+}
+.fame-rule-picker .fame-picker button.selected {
+  color: #f6ede1;
+  background: #211c18;
+  border-color: #211c18;
+}
+.fame-rule-picker p {
+  margin: 8px 0 0;
+  color: #756b62;
+  font-size: 10px;
 }
 .pool-builder-head {
   display: flex;
@@ -561,11 +635,22 @@ button {
 }
 .game-stage-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: end;
   justify-content: space-between;
   gap: 30px;
   padding-bottom: 26px;
   border-bottom: 2px solid #211b17;
+}
+.game-stage-head > div:first-child {
+  margin-right: auto;
+}
+.game-exit {
+  align-self: center;
+  border: 1px solid #766b62;
+  background: transparent;
+  color: #665d55;
+  padding: 10px 14px;
 }
 .game-stage-head .eyebrow {
   margin-bottom: 12px;
@@ -590,6 +675,49 @@ button {
 .attempt-counter span {
   color: #746a61;
   font-size: 12px;
+}
+.round-countdown {
+  display: flex;
+  min-width: 112px;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 9px 13px;
+  border: 1px solid var(--line-strong, #d9bf98);
+  border-radius: 14px;
+  background: var(--surface-solid, #fffdf3);
+}
+.round-countdown span {
+  color: var(--muted, #857466);
+  font-size: 10px;
+}
+.round-countdown b {
+  margin-top: 2px;
+  color: var(--mint-strong, #629f6d);
+  font-size: 25px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.round-countdown.urgent {
+  border-color: var(--danger, #e47791);
+  background: color-mix(
+    in srgb,
+    var(--danger, #e47791) 12%,
+    var(--surface-solid, #fffdf3)
+  );
+}
+.round-countdown.urgent b {
+  color: var(--danger, #e47791);
+}
+.timer-settling {
+  margin: 26px 0;
+  padding: 24px;
+  border: 1px dashed var(--line-strong, #d9bf98);
+  border-radius: 16px;
+  color: var(--muted, #857466);
+  background: var(--surface-solid, #fffdf3);
+  text-align: center;
 }
 .game-search {
   position: relative;
@@ -681,6 +809,54 @@ button {
   font-size: 10px;
   font-style: normal;
   text-transform: uppercase;
+}
+.duel-progress {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 22px 0;
+}
+.duel-progress > div {
+  min-width: 0;
+  border: 2px solid #2a2420;
+  padding: 16px;
+}
+.duel-progress .self {
+  text-align: left;
+  box-shadow: -6px 6px 0 #ff7442;
+}
+.duel-progress .opponent {
+  text-align: right;
+  box-shadow: 6px 6px 0 #2a2420;
+}
+.duel-progress small,
+.duel-progress span,
+.duel-progress b,
+.duel-progress i {
+  display: block;
+}
+.duel-progress small {
+  color: #7f756c;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+.duel-progress span {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 800;
+}
+.duel-progress b {
+  margin-top: 12px;
+  color: #e9572b;
+  font-size: clamp(13px, 2vw, 22px);
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+.duel-progress i {
+  margin-top: 6px;
+  color: #7f756c;
+  font-size: 10px;
+  font-style: normal;
 }
 .guess-history {
   margin-top: 24px;
@@ -846,8 +1022,554 @@ footer b {
   color: #d8cfc5;
 }
 
+/* Warm anime theme ------------------------------------------------------- */
+:root {
+  color: #5c4b3f;
+  background: #fff7e8;
+  color-scheme: light;
+}
+
+body {
+  background: #fff7e8;
+}
+
+.app-shell {
+  --page: #fff7e8;
+  --page-alt: #f1f6dc;
+  --surface: rgba(255, 253, 242, 0.9);
+  --surface-solid: #fffdf3;
+  --panel: #fff9e8;
+  --ink: #5c4b3f;
+  --ink-strong: #40362f;
+  --muted: #857466;
+  --line: #ead9ba;
+  --line-strong: #d9bf98;
+  --coral: #f49a62;
+  --coral-strong: #df6f45;
+  --coral-soft: #ffe2c4;
+  --mint: #8fc58b;
+  --mint-strong: #629f6d;
+  --mint-soft: #e0f1d5;
+  --honey: #d5b86a;
+  --shadow: rgba(142, 108, 71, 0.18);
+  --shadow-strong: rgba(121, 88, 56, 0.25);
+  --success: #83d5b0;
+  --success-ink: #285f4a;
+  --warning: #f7d978;
+  --warning-ink: #715b22;
+  --neutral: #e6e2ee;
+  --danger: #e47791;
+  color: var(--ink);
+  background:
+    radial-gradient(
+      circle at 9% 13%,
+      rgba(244, 154, 98, 0.25) 0 8%,
+      transparent 23%
+    ),
+    radial-gradient(
+      circle at 91% 8%,
+      rgba(143, 197, 139, 0.26) 0 9%,
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 72% 74%,
+      rgba(226, 191, 91, 0.18) 0 8%,
+      transparent 25%
+    ),
+    linear-gradient(145deg, var(--page) 0%, var(--page-alt) 52%, #fff1d6 100%);
+  font-family:
+    "Yu Gothic UI", "Noto Sans SC", "Microsoft YaHei", ui-rounded, sans-serif;
+  transition:
+    background 220ms ease,
+    color 220ms ease;
+}
+
+.app-shell[data-theme="night"] {
+  --page: #625044;
+  --page-alt: #4f6048;
+  --surface: rgba(104, 86, 72, 0.92);
+  --surface-solid: #705c4d;
+  --panel: #6a5749;
+  --ink: #fff1d3;
+  --ink-strong: #fff8e7;
+  --muted: #dac8ae;
+  --line: #927b64;
+  --line-strong: #ad9270;
+  --coral: #ffad68;
+  --coral-strong: #ffc27e;
+  --coral-soft: #785942;
+  --mint: #a6d19a;
+  --mint-strong: #c3e0ad;
+  --mint-soft: #536b4e;
+  --honey: #e4c36f;
+  --shadow: rgba(61, 47, 38, 0.3);
+  --shadow-strong: rgba(52, 42, 34, 0.4);
+  --neutral: #8a7768;
+  --success-ink: #244f41;
+  --warning-ink: #65511f;
+  background:
+    radial-gradient(
+      circle at 12% 10%,
+      rgba(255, 173, 104, 0.2) 0 8%,
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 88% 14%,
+      rgba(166, 209, 154, 0.2) 0 10%,
+      transparent 26%
+    ),
+    linear-gradient(145deg, var(--page) 0%, var(--page-alt) 58%, #5e5543 100%);
+}
+
+.site-header {
+  height: 78px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 14px 36px var(--shadow);
+  backdrop-filter: blur(18px);
+}
+.brand {
+  color: var(--ink-strong);
+}
+.brand small,
+.site-header nav a,
+.connection {
+  color: var(--muted);
+}
+.brand-dice {
+  color: #fff;
+  background: linear-gradient(135deg, var(--coral), var(--mint));
+  border-radius: 14px 14px 14px 5px;
+  box-shadow: 0 7px 16px var(--shadow-strong);
+}
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: linear-gradient(135deg, var(--coral-soft), var(--mint-soft));
+  font-size: 12px;
+  font-weight: 700;
+}
+.theme-toggle span {
+  color: var(--coral-strong);
+  font-size: 16px;
+}
+.connection::before {
+  background: var(--danger);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+.connection.online::before {
+  background: var(--success);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 22%, transparent);
+}
+
+.hero {
+  min-height: 690px;
+}
+.hero::before {
+  width: 460px;
+  height: 460px;
+  left: -245px;
+  top: 90px;
+  border: 2px dashed color-mix(in srgb, var(--coral) 55%, transparent);
+  box-shadow:
+    0 0 0 55px color-mix(in srgb, var(--mint-soft) 65%, transparent),
+    0 0 0 57px color-mix(in srgb, var(--mint) 38%, transparent);
+  transform: rotate(12deg);
+}
+.hero::after {
+  content: "✦  ♡  ✦";
+  position: absolute;
+  right: 42px;
+  top: 34px;
+  color: var(--coral);
+  font-size: 22px;
+  letter-spacing: 0.7em;
+  opacity: 0.72;
+  pointer-events: none;
+}
+.eyebrow,
+.hero h1 span,
+.room-heading strong,
+.feature-strip b,
+.data-note span {
+  color: var(--coral-strong);
+}
+.hero h1,
+.data-note h2,
+.feature-strip h2 {
+  color: var(--ink-strong);
+}
+.hero h1 {
+  text-shadow: 3px 4px 0 color-mix(in srgb, var(--mint) 22%, transparent);
+}
+.hero-lead,
+.feature-strip p,
+.data-note > p:not(.eyebrow),
+footer {
+  color: var(--muted);
+}
+
+.entry-card,
+.room-card {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: 0 18px 42px var(--shadow);
+  backdrop-filter: blur(14px);
+}
+.entry-card label span,
+.entry-section > span,
+.fame-rule-picker > small,
+.room-heading > span,
+.room-note,
+.tier-description,
+.player-list b {
+  color: var(--muted);
+}
+.entry-card input,
+.join-control input,
+.tag-entry input,
+.pool-options select,
+.game-search > input {
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  color: var(--ink-strong);
+  background: var(--surface-solid);
+  box-shadow: inset 0 2px 7px var(--shadow);
+}
+.entry-card input:focus,
+.tag-entry input:focus,
+.pool-options select:focus,
+.game-search > input:focus {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--coral) 18%, transparent);
+}
+.mode-picker button,
+.fame-picker button,
+.entry-actions button,
+.lobby-actions button,
+.game-exit {
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  color: var(--ink);
+  background: var(--surface-solid);
+}
+.mode-picker button,
+.fame-picker button {
+  position: relative;
+  overflow: hidden;
+}
+.mode-picker button::after,
+.fame-picker button::after {
+  content: "♡";
+  position: absolute;
+  right: 8px;
+  top: 5px;
+  color: var(--line-strong);
+  font-size: 12px;
+}
+.mode-picker button.selected,
+.fame-picker button.selected,
+.fame-rule-picker .fame-picker button.selected {
+  border-color: var(--coral);
+  color: var(--ink-strong);
+  background: linear-gradient(135deg, var(--coral-soft), var(--mint-soft));
+  box-shadow: inset 0 -3px var(--coral);
+}
+.mode-picker button.selected::after,
+.fame-picker button.selected::after {
+  color: var(--coral-strong);
+}
+.mode-picker small,
+.fame-picker small,
+.fame-rule-picker p {
+  color: var(--muted);
+}
+.entry-actions button.primary,
+.lobby-actions button.primary,
+.lobby-actions button.ready {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--coral-strong), var(--mint-strong));
+  box-shadow: 0 8px 18px var(--shadow-strong);
+}
+.error-message,
+.player-list .offline-mark {
+  color: var(--danger);
+}
+.room-heading {
+  border-color: var(--line);
+}
+.player-list div {
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--mint-soft);
+}
+.player-list i {
+  color: #fff;
+  background: linear-gradient(135deg, var(--coral), var(--mint));
+  border-radius: 50%;
+}
+.player-list .ready-mark {
+  color: var(--success);
+}
+.lobby-actions .leave-button,
+.game-exit {
+  color: var(--muted);
+  background: transparent;
+}
+
+.rule-builder,
+.game-stage {
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  color: var(--ink);
+  background: var(--panel);
+  box-shadow: 14px 16px 0 color-mix(in srgb, var(--mint) 45%, transparent);
+  transform: none;
+}
+.rule-builder {
+  position: relative;
+}
+.rule-builder::before {
+  content: "★";
+  position: absolute;
+  right: 23px;
+  top: -17px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, var(--coral), var(--honey));
+  box-shadow: 0 8px 18px var(--shadow);
+}
+.rule-builder-head,
+.pool-builder,
+.game-stage-head {
+  border-color: var(--line-strong);
+}
+.rule-builder-head h2,
+.pool-builder h3,
+.game-stage-head h2 {
+  color: var(--ink-strong);
+}
+.rule-builder-head small,
+.rule-builder > p,
+.pool-builder-head small,
+.pool-builder > p,
+.fame-rule-picker > small,
+.attempt-counter span,
+.race-progress i,
+.duel-progress small,
+.duel-progress i,
+.guess-history > p {
+  color: var(--muted);
+}
+.rule-builder-head > b,
+.game-stage-head .eyebrow,
+.attempt-counter b,
+.race-progress b,
+.duel-progress b {
+  color: var(--coral-strong);
+}
+.comparison-grid button,
+.tag-mode,
+.tag-cloud button,
+.selected-tags button,
+.pool-options label,
+.race-progress div,
+.duel-progress > div,
+.guess-history > p,
+.guess-history article {
+  border-color: var(--line-strong);
+}
+.comparison-grid button,
+.tag-mode button,
+.tag-cloud button,
+.pool-options label {
+  color: var(--ink);
+  background: var(--surface-solid);
+}
+.comparison-grid button span,
+.comparison-notes,
+.tag-mode button,
+.tag-cloud button small {
+  color: var(--muted);
+}
+.comparison-grid button,
+.tag-mode,
+.tag-cloud button,
+.selected-tags button,
+.pool-options label,
+.tag-entry button {
+  border-radius: 11px;
+}
+.comparison-grid button.selected,
+.tag-mode button.selected,
+.tag-cloud button.selected,
+.selected-tags button,
+.tag-entry button {
+  border-color: var(--mint);
+  color: var(--ink-strong);
+  background: var(--mint-soft);
+}
+.comparison-grid button.selected span,
+.comparison-grid button.selected i,
+.selected-tags button span {
+  color: var(--coral-strong);
+}
+.comparison-notes {
+  border-color: var(--line);
+}
+.comparison-notes summary,
+.pool-builder .exclude-label {
+  color: var(--coral-strong);
+}
+.tag-mode button {
+  border-color: var(--line-strong);
+}
+.tag-cloud button.selected {
+  border-color: var(--coral);
+  background: var(--coral-soft);
+}
+.excluded-tags button {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--line));
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 13%, var(--surface-solid));
+}
+.pool-options input {
+  accent-color: var(--coral-strong);
+}
+
+.game-stage {
+  margin-top: 36px;
+}
+.game-search > input {
+  min-height: 60px;
+}
+.game-suggestions {
+  border-color: var(--line-strong);
+  border-radius: 15px;
+  background: var(--surface-solid);
+  box-shadow: 0 15px 34px var(--shadow-strong);
+  overflow: hidden;
+}
+.game-suggestions button {
+  border-color: var(--line);
+  color: var(--ink-strong);
+}
+.game-suggestions button:hover {
+  background: linear-gradient(90deg, var(--coral-soft), var(--mint-soft));
+}
+.game-suggestions button span {
+  color: var(--muted);
+}
+.answer-banner {
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  color: var(--ink-strong);
+  background: linear-gradient(135deg, var(--coral-soft), var(--mint-soft));
+}
+.answer-banner span {
+  color: var(--coral-strong);
+}
+.race-progress div,
+.duel-progress > div {
+  border-radius: 16px;
+  background: var(--surface-solid);
+}
+.duel-progress .self {
+  box-shadow: -6px 7px 0 color-mix(in srgb, var(--coral) 62%, transparent);
+}
+.duel-progress .opponent {
+  box-shadow: 6px 7px 0 color-mix(in srgb, var(--mint) 62%, transparent);
+}
+.guess-history article header,
+.guess-history article > div > span {
+  border-radius: 11px;
+  color: var(--ink-strong);
+  background: var(--neutral);
+}
+.guess-history article header.title-partial,
+.guess-history article > div > span.partial {
+  color: var(--warning-ink);
+  background: var(--warning);
+}
+.guess-history article header.title-exact,
+.guess-history article > div > span.exact {
+  color: var(--success-ink);
+  background: var(--success);
+}
+.guess-history article > div > span.unknown {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--neutral),
+    var(--neutral) 6px,
+    color-mix(in srgb, var(--neutral) 70%, var(--line-strong)) 6px,
+    color-mix(in srgb, var(--neutral) 70%, var(--line-strong)) 12px
+  );
+}
+.guess-history article header span,
+.guess-history article small,
+.guess-history .comparison-verdict {
+  color: color-mix(in srgb, currentColor 75%, var(--muted));
+}
+.guess-history .comparison-value {
+  color: inherit;
+}
+
+.feature-strip {
+  gap: 16px;
+  padding: 0 42px;
+  border: 0;
+}
+.feature-strip article {
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: 0 14px 30px var(--shadow);
+}
+.feature-strip article:last-child {
+  border: 1px solid var(--line);
+}
+.data-note > div,
+footer {
+  border-color: var(--line);
+}
+.data-note i {
+  border-color: var(--line);
+  color: var(--muted);
+}
+footer b {
+  color: var(--ink-strong);
+}
+
+.app-shell[data-theme="night"] .entry-card,
+.app-shell[data-theme="night"] .room-card,
+.app-shell[data-theme="night"] .site-header {
+  box-shadow: 0 18px 42px var(--shadow-strong);
+}
+.app-shell[data-theme="night"] .guess-history article header.title-partial,
+.app-shell[data-theme="night"] .guess-history article > div > span.partial,
+.app-shell[data-theme="night"] .guess-history article header.title-exact,
+.app-shell[data-theme="night"] .guess-history article > div > span.exact {
+  color: #40362f;
+}
+
 @media (max-width: 980px) {
   .site-header {
+    margin: 10px 12px 0;
     padding: 0 22px;
   }
   .site-header nav a {
@@ -863,7 +1585,7 @@ footer b {
   }
   .rule-builder {
     transform: none;
-    box-shadow: 10px 10px 0 #ff7442;
+    box-shadow: 10px 10px 0 color-mix(in srgb, var(--mint) 45%, transparent);
   }
   .game-stage {
     margin: 0 22px 70px;
@@ -874,7 +1596,7 @@ footer b {
   }
   .feature-strip article {
     border-right: 0;
-    border-bottom: 1px solid #3a342f;
+    border: 1px solid var(--line);
     padding: 28px 22px;
   }
   .data-note {
@@ -903,6 +1625,15 @@ footer b {
   }
   .entry-actions {
     grid-template-columns: 1fr;
+  }
+  .mode-picker,
+  .fame-picker,
+  .duel-progress {
+    grid-template-columns: 1fr;
+  }
+  .duel-progress .opponent {
+    text-align: left;
+    box-shadow: -6px 6px 0 color-mix(in srgb, var(--mint) 62%, transparent);
   }
   .comparison-grid {
     grid-template-columns: 1fr;

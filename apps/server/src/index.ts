@@ -9,6 +9,8 @@ import { z } from "zod";
 import { normalizeTitle } from "@gal-yiba/data";
 import {
   comparisonKeys,
+  fameTierForVisualNovel,
+  fameTierThresholds,
   selectImportantTags,
   type GameRules,
 } from "@gal-yiba/shared";
@@ -43,13 +45,18 @@ const joinSchema = z.object({
   code: z.string().trim().length(5),
   nickname: nicknameSchema,
 });
+const createRoomSchema = z.object({
+  nickname: nicknameSchema,
+  mode: z.enum(["solo", "duel", "race"]),
+  fameTier: z.enum(["novice", "standard", "veteran"]),
+});
 const reconnectSchema = z.object({
   code: z.string().trim().length(5),
   reconnectToken: z.string().uuid(),
 });
 const gameRulesSchema = z.object({
   version: z.literal(1),
-  mode: z.enum(["solo", "daily", "race"]),
+  mode: z.enum(["solo", "duel", "race"]),
   maxGuesses: z.number().int().min(1).max(20),
   roundTimeSeconds: z.number().int().min(30).max(600),
   bestOf: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(7)]),
@@ -63,6 +70,7 @@ const gameRulesSchema = z.object({
     tagMode: z.enum(["all", "any"]),
     allAgesOnly: z.boolean(),
     maxTagSpoilerLevel: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+    fameTier: z.enum(["novice", "standard", "veteran"]),
   }),
 });
 
@@ -106,6 +114,14 @@ async function broadcastRoomState(roomCode: string): Promise<void> {
   }
 }
 
+function scheduleRoomExpiry(roomCode: string, deadlineAt: string): void {
+  const delay = Math.max(0, Date.parse(deadlineAt) - Date.now()) + 50;
+  setTimeout(() => {
+    const expiredRoom = rooms.expire(roomCode);
+    if (expiredRoom) void broadcastRoomState(expiredRoom.code);
+  }, delay).unref();
+}
+
 app.use(cors({ origin: webOrigin, credentials: true }));
 app.use(express.json());
 
@@ -137,11 +153,17 @@ app.get("/api/catalog/tags", async (request, response, next) => {
     const query = normalizeTitle(String(request.query.q ?? ""));
     const parsedSpoilerLevel = Number(request.query.maxSpoilerLevel ?? 0);
     const allAgesOnly = String(request.query.allAgesOnly ?? "false") === "true";
+    const fameTier = z
+      .enum(["novice", "standard", "veteran"])
+      .optional()
+      .parse(request.query.fameTier);
     const maxSpoilerLevel = (
       [0, 1, 2].includes(parsedSpoilerLevel) ? parsedSpoilerLevel : 0
     ) as 0 | 1 | 2;
     const counts = new Map<string, number>();
     for (const visualNovel of await loadCatalog()) {
+      if (fameTier && fameTierForVisualNovel(visualNovel) !== fameTier)
+        continue;
       if (allAgesOnly && visualNovel.ageRating !== "all_ages") continue;
       const tags = selectImportantTags(
         visualNovel.tagDetails,
@@ -164,6 +186,18 @@ app.get("/api/catalog/tags", async (request, response, next) => {
   }
 });
 
+app.get("/api/catalog/fame-tiers", async (_request, response, next) => {
+  try {
+    const counts = { novice: 0, standard: 0, veteran: 0 };
+    for (const visualNovel of await loadCatalog()) {
+      counts[fameTierForVisualNovel(visualNovel)] += 1;
+    }
+    response.json({ counts, thresholds: fameTierThresholds });
+  } catch (error) {
+    next(error);
+  }
+});
+
 if (process.env.NODE_ENV === "production") {
   const webDist =
     process.env.WEB_DIST_PATH ??
@@ -175,16 +209,31 @@ if (process.env.NODE_ENV === "production") {
 }
 
 io.on("connection", (socket) => {
-  socket.on("room:create", (payload: unknown, acknowledge) => {
+  socket.on("room:create", async (payload: unknown, acknowledge) => {
     try {
-      const nickname = nicknameSchema.parse(
-        (payload as { nickname?: unknown })?.nickname,
-      );
-      const result = rooms.create(nickname);
+      const input = createRoomSchema.parse(payload);
+      const result = rooms.create(input.nickname, input.mode, input.fameTier);
       socket.join(result.room.code);
       bindSocketSession(socket, result.room.code, result.session.playerId);
       acknowledge({ ok: true, ...result });
-      io.to(result.room.code).emit("room:updated", result.room);
+      await broadcastRoomState(result.room.code);
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on("room:leave", async (_payload: unknown, acknowledge) => {
+    try {
+      const identity = socketIdentity(socket);
+      const room = rooms.leave(identity.roomCode, identity.playerId);
+      await socket.leave(identity.roomCode);
+      delete socket.data.roomCode;
+      delete socket.data.playerId;
+      if (room) await broadcastRoomState(room.code);
+      acknowledge({ ok: true });
     } catch (error) {
       acknowledge({
         ok: false,
@@ -270,6 +319,7 @@ io.on("connection", (socket) => {
       const catalog = await loadCatalog();
       if (catalog.length === 0) throw new Error("CATALOG_EMPTY");
       const room = rooms.start(identity.roomCode, identity.playerId, catalog);
+      if (room.round) scheduleRoomExpiry(room.code, room.round.deadlineAt);
       await broadcastRoomState(room.code);
       acknowledge({
         ok: true,

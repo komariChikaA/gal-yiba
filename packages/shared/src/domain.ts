@@ -36,6 +36,8 @@ export const defaultComparisonKeys = [
 export type Playtime = "very_short" | "short" | "medium" | "long" | "very_long";
 export type AnimeAdaptation = "none" | "announced" | "has_adaptation";
 export type AgeRating = "all_ages" | "restricted" | "unknown";
+export type GameMode = "solo" | "duel" | "race";
+export type FameTier = "novice" | "standard" | "veteran";
 export type HeroineHairColor =
   | "black"
   | "blond"
@@ -96,11 +98,12 @@ export interface PoolFilter {
   tagMode: "all" | "any";
   allAgesOnly: boolean;
   maxTagSpoilerLevel: 0 | 1 | 2;
+  fameTier: FameTier;
 }
 
 export interface GameRules {
   version: 1;
-  mode: "solo" | "daily" | "race";
+  mode: GameMode;
   maxGuesses: number;
   roundTimeSeconds: number;
   bestOf: 1 | 3 | 5 | 7;

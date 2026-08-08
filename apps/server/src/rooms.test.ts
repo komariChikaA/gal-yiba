@@ -15,7 +15,7 @@ function visualNovel(id: string): VisualNovel {
     playtime: "medium",
     vndbRating: 8,
     bangumiRating: 7.8,
-    vndbVoteCount: 3000,
+    vndbVoteCount: 500,
     bangumiVoteCount: 1200,
     animeAdaptation: null,
     ageRating: "all_ages",
@@ -29,7 +29,7 @@ function visualNovel(id: string): VisualNovel {
 describe("RoomRegistry", () => {
   it("creates a five-character room and lets another player join case-insensitively", () => {
     const registry = new RoomRegistry();
-    const created = registry.create("房主");
+    const created = registry.create("房主", "race", "standard");
     const joined = registry.join(created.room.code.toLowerCase(), "玩家二");
     expect(created.room.code).toMatch(/^[A-Z2-9]{5}$/);
     expect(joined.room.players.map((player) => player.nickname)).toEqual([
@@ -50,6 +50,7 @@ describe("RoomRegistry", () => {
       "platforms",
       "tags",
     ]);
+    expect(created.room.rules.roundTimeSeconds).toBe(300);
   });
 
   it("allows only the host to change enabled comparison fields", () => {
@@ -145,5 +146,66 @@ describe("RoomRegistry", () => {
         visualNovel("answer"),
       ]),
     ).toThrow("PLAYERS_NOT_READY");
+  });
+
+  it("starts a solo room with one player", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("单人玩家", "solo", "novice");
+    expect(() => registry.join(host.room.code, "旁观者")).toThrow("SOLO_ROOM");
+    const started = registry.start(
+      host.room.code,
+      host.session.playerId,
+      [{ ...visualNovel("answer"), vndbVoteCount: 1000 }],
+      { random: () => 0 },
+    );
+    expect(started.phase).toBe("active");
+    expect(started.rules.pool.fameTier).toBe("novice");
+    expect(started.round?.players).toHaveLength(1);
+  });
+
+  it("caps 1v1 rooms at two players and awards a win when one leaves", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel");
+    const guest = registry.join(host.room.code, "玩家二");
+    expect(() => registry.join(host.room.code, "玩家三")).toThrow("ROOM_FULL");
+    registry.setReady(host.room.code, guest.session.playerId, true);
+    registry.start(host.room.code, host.session.playerId, [
+      visualNovel("answer"),
+    ]);
+    const remaining = registry.leave(host.room.code, guest.session.playerId);
+    expect(remaining?.phase).toBe("finished");
+    expect(remaining?.winnerPlayerId).toBe(host.session.playerId);
+  });
+
+  it("transfers lobby ownership and deletes an empty room on leave", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "race");
+    const guest = registry.join(host.room.code, "玩家二");
+    const remaining = registry.leave(host.room.code, host.session.playerId);
+    expect(remaining?.hostPlayerId).toBe(guest.session.playerId);
+    expect(registry.leave(host.room.code, guest.session.playerId)).toBeNull();
+    expect(() => registry.get(host.room.code)).toThrow("ROOM_NOT_FOUND");
+  });
+
+  it("automatically expires an active round when its deadline passes", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("单人玩家", "solo", "standard");
+    const started = registry.start(
+      host.room.code,
+      host.session.playerId,
+      [visualNovel("answer")],
+      { now: new Date("2026-08-09T00:00:00.000Z"), random: () => 0 },
+    );
+    expect(
+      registry.expire(host.room.code, new Date("2026-08-09T00:04:59.000Z")),
+    ).toBeNull();
+    const expired = registry.expire(
+      host.room.code,
+      new Date("2026-08-09T00:05:00.000Z"),
+    );
+    expect(expired?.phase).toBe("finished");
+    expect(expired?.winnerPlayerId).toBeNull();
+    expect(expired?.round?.players[0]?.status).toBe("expired");
+    expect(expired?.round?.answer?.id).toBe("answer");
   });
 });

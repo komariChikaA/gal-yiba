@@ -6,6 +6,8 @@ import {
   publicGameSession,
   submitGuess,
   type GameRules,
+  type FameTier,
+  type GameMode,
   type GameSession,
   type PublicGameSession,
   type VisualNovel,
@@ -64,7 +66,7 @@ export const defaultRules: GameRules = {
   version: 1,
   mode: "race",
   maxGuesses: 8,
-  roundTimeSeconds: 120,
+  roundTimeSeconds: 300,
   bestOf: 1,
   comparisonKeys: [...defaultComparisonKeys],
   pool: {
@@ -73,6 +75,7 @@ export const defaultRules: GameRules = {
     tagMode: "all",
     allAgesOnly: false,
     maxTagSpoilerLevel: 0,
+    fameTier: "standard",
   },
 };
 
@@ -124,7 +127,11 @@ export class RoomRegistry {
     { roomCode: string; playerId: string }
   >();
 
-  create(nickname: string): { room: RoomSnapshot; session: PlayerSession } {
+  create(
+    nickname: string,
+    mode: GameMode = "race",
+    fameTier: FameTier = "standard",
+  ): { room: RoomSnapshot; session: PlayerSession } {
     let code = createRoomCode();
     while (this.rooms.has(code)) code = createRoomCode();
 
@@ -141,7 +148,11 @@ export class RoomRegistry {
       phase: "lobby",
       hostPlayerId: playerId,
       players: new Map([[playerId, player]]),
-      rules: cloneRules(defaultRules),
+      rules: {
+        ...cloneRules(defaultRules),
+        mode,
+        pool: { ...cloneRules(defaultRules).pool, fameTier },
+      },
       round: null,
       winnerPlayerId: null,
       revision: 1,
@@ -158,7 +169,9 @@ export class RoomRegistry {
     const code = codeInput.trim().toUpperCase();
     const room = this.requireRoom(code);
     if (room.phase !== "lobby") throw new Error("ROOM_ALREADY_STARTED");
-    if (room.players.size >= 8) throw new Error("ROOM_FULL");
+    if (room.rules.mode === "solo") throw new Error("SOLO_ROOM");
+    const capacity = room.rules.mode === "duel" ? 2 : 8;
+    if (room.players.size >= capacity) throw new Error("ROOM_FULL");
 
     const playerId = randomUUID();
     const reconnectToken = randomUUID();
@@ -210,6 +223,7 @@ export class RoomRegistry {
     const room = this.requireRoom(code);
     if (room.phase !== "lobby") throw new Error("ROOM_ALREADY_STARTED");
     if (room.hostPlayerId !== playerId) throw new Error("HOST_ONLY");
+    if (rules.mode !== room.rules.mode) throw new Error("MODE_IMMUTABLE");
     if (rules.comparisonKeys.length < 3)
       throw new Error("TOO_FEW_COMPARISON_KEYS");
     if (new Set(rules.comparisonKeys).size !== rules.comparisonKeys.length) {
@@ -244,7 +258,12 @@ export class RoomRegistry {
     const connectedPlayers = [...room.players.values()].filter(
       (player) => player.connected,
     );
-    if (connectedPlayers.length < 2) throw new Error("NOT_ENOUGH_PLAYERS");
+    if (room.rules.mode === "solo" && connectedPlayers.length !== 1)
+      throw new Error("INVALID_SOLO_PLAYERS");
+    if (room.rules.mode === "duel" && connectedPlayers.length !== 2)
+      throw new Error("NOT_ENOUGH_PLAYERS");
+    if (room.rules.mode === "race" && connectedPlayers.length < 2)
+      throw new Error("NOT_ENOUGH_PLAYERS");
     if (
       connectedPlayers.some((player) => player.id !== playerId && !player.ready)
     ) {
@@ -329,6 +348,70 @@ export class RoomRegistry {
 
   get(code: string): RoomSnapshot {
     return snapshot(this.requireRoom(code.trim().toUpperCase()));
+  }
+
+  expire(codeInput: string, now = new Date()): RoomSnapshot | null {
+    const room = this.rooms.get(codeInput.trim().toUpperCase());
+    if (room?.phase !== "active" || !room.round) return null;
+    const games = [...room.round.playerGames.values()];
+    const deadlineAt = games[0]?.deadlineAt;
+    if (!deadlineAt || now.getTime() < Date.parse(deadlineAt)) return null;
+    for (const [playerId, game] of room.round.playerGames) {
+      if (game.status !== "active") continue;
+      room.round.playerGames.set(playerId, {
+        ...game,
+        status: "expired",
+        finishedAt: now.toISOString(),
+      });
+    }
+    room.phase = "finished";
+    room.winnerPlayerId = null;
+    room.revision += 1;
+    return snapshot(room);
+  }
+
+  leave(
+    codeInput: string,
+    playerId: string,
+    now = new Date(),
+  ): RoomSnapshot | null {
+    const code = codeInput.trim().toUpperCase();
+    const room = this.rooms.get(code);
+    if (!room) return null;
+    if (!room.players.has(playerId)) return snapshot(room);
+
+    room.players.delete(playerId);
+    room.round?.playerGames.delete(playerId);
+    for (const [token, identity] of this.reconnectTokens) {
+      if (identity.roomCode === code && identity.playerId === playerId) {
+        this.reconnectTokens.delete(token);
+      }
+    }
+    if (room.players.size === 0) {
+      this.rooms.delete(code);
+      return null;
+    }
+    if (room.hostPlayerId === playerId) {
+      room.hostPlayerId = room.players.keys().next().value as string;
+    }
+    if (
+      room.phase === "active" &&
+      room.round &&
+      room.rules.mode !== "solo" &&
+      room.round.playerGames.size === 1
+    ) {
+      const [winnerId, winnerGame] = room.round.playerGames.entries().next()
+        .value as [string, GameSession];
+      room.round.playerGames.set(winnerId, {
+        ...winnerGame,
+        status: "won",
+        finishedAt: now.toISOString(),
+      });
+      room.winnerPlayerId = winnerId;
+      room.phase = "finished";
+    }
+    room.revision += 1;
+    return snapshot(room);
   }
 
   private requireRoom(code: string): MutableRoom {

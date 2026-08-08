@@ -5,12 +5,16 @@ import {
   voteTierThresholds,
   type ComparisonKey,
   type ComparisonResult,
+  type FameTier,
+  type GameMode,
   type GameRules,
 } from "@gal-yiba/shared";
 import {
   formatComparisonAriaLabel,
   formatComparisonMarker,
   formatComparisonValue,
+  formatCountdown,
+  formatGuessStars,
 } from "./comparison-format";
 
 const socket = io({ autoConnect: true });
@@ -57,6 +61,46 @@ const comparisonRuleNotes = [
   "平台：有共同平台时为黄色；答案还有更多主要平台时显示 +。标签有交集时为黄色。",
 ];
 
+const modeOptions: Array<{
+  value: GameMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "solo",
+    label: "单人模式",
+    description: "独自推理，不用等待其他玩家",
+  },
+  {
+    value: "duel",
+    label: "1v1 模式",
+    description: "左右对阵，实时查看星号进度",
+  },
+  { value: "race", label: "多人竞技", description: "2–8 人同时竞猜同一答案" },
+];
+
+const fameOptions: Array<{
+  value: FameTier;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "novice",
+    label: "萌新",
+    description: "高知名度：VNDB ≥ 1000 票或 Bangumi ≥ 3000 票",
+  },
+  {
+    value: "standard",
+    label: "标准",
+    description: "中等知名度：VNDB ≥ 250 票或 Bangumi ≥ 300 票",
+  },
+  {
+    value: "veteran",
+    label: "老资历",
+    description: "偏冷门：低于标准档票数门槛",
+  },
+];
+
 interface RoomPlayer {
   id: string;
   nickname: string;
@@ -101,6 +145,7 @@ interface PublicGameSession {
   status: "active" | "won" | "lost" | "expired";
   rules: GameRules;
   guesses: GuessRecord[];
+  deadlineAt: string;
   attemptsLeft: number;
   answer?: { id: string; title: string };
 }
@@ -122,6 +167,7 @@ interface RoomSuccess {
   ok: true;
   room: RoomSnapshot;
   session: Session;
+  game?: PublicGameSession;
 }
 
 interface RoomFailure {
@@ -130,10 +176,22 @@ interface RoomFailure {
 }
 
 type RoomResponse = RoomSuccess | RoomFailure;
+type ColorTheme = "day" | "night";
 
 export function App() {
+  const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
+    return localStorage.getItem("gal-yiba-color-theme") === "night"
+      ? "night"
+      : "day";
+  });
   const [connected, setConnected] = useState(socket.connected);
   const [nickname, setNickname] = useState("");
+  const [selectedMode, setSelectedMode] = useState<GameMode>("solo");
+  const [selectedFameTier, setSelectedFameTier] =
+    useState<FameTier>("standard");
+  const [fameCounts, setFameCounts] = useState<Record<FameTier, number> | null>(
+    null,
+  );
   const [joinCode, setJoinCode] = useState("");
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -149,12 +207,46 @@ export function App() {
   >([]);
   const [includedTagInput, setIncludedTagInput] = useState("");
   const [customTag, setCustomTag] = useState("");
+  const [clockNow, setClockNow] = useState(() => Date.now());
 
   const isHost = room != null && session?.playerId === room.hostPlayerId;
   const currentPlayer = room?.players.find(
     (player) => player.id === session?.playerId,
   );
   const canEnter = nickname.trim().length > 0 && connected;
+  const remainingSeconds = game
+    ? Math.max(0, Math.ceil((Date.parse(game.deadlineAt) - clockNow) / 1000))
+    : 0;
+
+  useEffect(() => {
+    localStorage.setItem("gal-yiba-color-theme", colorTheme);
+    document.documentElement.style.colorScheme =
+      colorTheme === "night" ? "dark" : "light";
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", colorTheme === "night" ? "#625044" : "#fff7e8");
+  }, [colorTheme]);
+
+  useEffect(() => {
+    if (!game || game.status !== "active") return;
+    setClockNow(Date.now());
+    const timer = window.setInterval(() => setClockNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [game?.id, game?.status, game?.deadlineAt]);
+
+  useEffect(() => {
+    void fetch("/api/catalog/fame-tiers")
+      .then(
+        (response) =>
+          response.json() as Promise<{ counts: Record<FameTier, number> }>,
+      )
+      .then((body) => setFameCounts(body.counts))
+      .catch(() => setFameCounts(null));
+  }, []);
+
+  useEffect(() => {
+    if (room?.round && game) window.scrollTo({ top: 0, behavior: "instant" });
+  }, [room?.round?.roundNumber, game?.id]);
 
   useEffect(() => {
     const tryReconnect = () => {
@@ -206,7 +298,7 @@ export function App() {
     if (!room || !isHost || room.phase !== "lobby") return;
     const controller = new AbortController();
     void fetch(
-      `/api/catalog/tags?maxSpoilerLevel=${room.rules.pool.maxTagSpoilerLevel}&allAgesOnly=${room.rules.pool.allAgesOnly}`,
+      `/api/catalog/tags?maxSpoilerLevel=${room.rules.pool.maxTagSpoilerLevel}&allAgesOnly=${room.rules.pool.allAgesOnly}&fameTier=${room.rules.pool.fameTier}`,
       {
         signal: controller.signal,
       },
@@ -227,6 +319,7 @@ export function App() {
     room?.phase,
     room?.rules.pool.maxTagSpoilerLevel,
     room?.rules.pool.allAgesOnly,
+    room?.rules.pool.fameTier,
     isHost,
   ]);
 
@@ -265,6 +358,7 @@ export function App() {
     setError("");
     setRoom(response.room);
     setSession(response.session);
+    if (response.game) setGame(response.game);
     setSelected(response.room.rules.comparisonKeys);
     localStorage.setItem(
       `gal-yiba-session-${response.room.code}`,
@@ -276,8 +370,35 @@ export function App() {
   function createRoom() {
     socket.emit(
       "room:create",
-      { nickname: nickname.trim() },
+      {
+        nickname: nickname.trim(),
+        mode: selectedMode,
+        fameTier: selectedFameTier,
+      },
       handleRoomResponse,
+    );
+  }
+
+  function leaveRoom() {
+    socket.emit(
+      "room:leave",
+      {},
+      (response: { ok: boolean; error?: string }) => {
+        if (!response.ok) {
+          setError(response.error ?? "LEAVE_FAILED");
+          return;
+        }
+        if (room) {
+          localStorage.removeItem(`gal-yiba-session-${room.code}`);
+          localStorage.removeItem("gal-yiba-last-room");
+        }
+        setRoom(null);
+        setSession(null);
+        setGame(null);
+        setSearchQuery("");
+        setSearchItems([]);
+        setError("");
+      },
     );
   }
 
@@ -399,7 +520,7 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-theme={colorTheme}>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="旮一把首页">
           <span className="brand-dice">旮</span>
@@ -410,6 +531,20 @@ export function App() {
         <nav>
           <a href="#modes">玩法</a>
           <a href="#data">数据</a>
+          <button
+            className="theme-toggle"
+            type="button"
+            aria-label={
+              colorTheme === "day" ? "切换到柔和夜色" : "切换到明亮日光"
+            }
+            aria-pressed={colorTheme === "night"}
+            onClick={() =>
+              setColorTheme((current) => (current === "day" ? "night" : "day"))
+            }
+          >
+            <span aria-hidden="true">{colorTheme === "day" ? "☾" : "☀"}</span>
+            {colorTheme === "day" ? "夜色" : "日光"}
+          </button>
           <span className={`connection ${connected ? "online" : "offline"}`}>
             {connected ? "联机服务已连接" : "正在重连"}
           </span>
@@ -417,320 +552,440 @@ export function App() {
       </header>
 
       <main id="top">
-        <section className="hero">
-          <div className="hero-copy">
-            <p className="eyebrow">PICK · COMPARE · OUTPLAY</p>
-            <h1>
-              不止猜中，
-              <br />
-              还要比对手<span>更快一步。</span>
-            </h1>
-            <p className="hero-lead">
-              从 VNDB 与 Bangumi
-              构建题库。房主决定这局看会社、年份、评分还是作品标签，所有玩家同题竞速。
-            </p>
+        {(!room?.round || !game) && (
+          <section className="hero">
+            <div className="hero-copy">
+              <p className="eyebrow">PICK · COMPARE · OUTPLAY</p>
+              <h1>
+                不止猜中，
+                <br />
+                还要比对手<span>更快一步。</span>
+              </h1>
+              <p className="hero-lead">
+                从 VNDB 与 Bangumi
+                构建题库。房主决定这局看会社、年份、评分还是作品标签，所有玩家同题竞速。
+              </p>
 
-            {!room ? (
-              <div className="entry-card">
-                <label>
-                  <span>你的昵称</span>
-                  <input
-                    value={nickname}
-                    maxLength={20}
-                    onChange={(event) => setNickname(event.target.value)}
-                    placeholder="输入 1–20 个字符"
-                  />
-                </label>
-                <div className="entry-actions">
-                  <button
-                    className="primary"
-                    disabled={!canEnter}
-                    onClick={createRoom}
-                  >
-                    创建房间
-                  </button>
-                  <div className="join-control">
+              {!room ? (
+                <div className="entry-card">
+                  <label>
+                    <span>你的昵称</span>
                     <input
-                      value={joinCode}
-                      maxLength={5}
-                      onChange={(event) =>
-                        setJoinCode(event.target.value.toUpperCase())
+                      value={nickname}
+                      maxLength={20}
+                      onChange={(event) => setNickname(event.target.value)}
+                      placeholder="输入 1–20 个字符"
+                    />
+                  </label>
+                  <div className="entry-section">
+                    <span>选择玩法</span>
+                    <div className="mode-picker">
+                      {modeOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          className={
+                            selectedMode === option.value ? "selected" : ""
+                          }
+                          onClick={() => setSelectedMode(option.value)}
+                        >
+                          <b>{option.label}</b>
+                          <small>{option.description}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="entry-section">
+                    <span>作品知名度</span>
+                    <div className="fame-picker">
+                      {fameOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          className={
+                            selectedFameTier === option.value ? "selected" : ""
+                          }
+                          onClick={() => setSelectedFameTier(option.value)}
+                          title={option.description}
+                        >
+                          <b>{option.label}</b>
+                          <small>
+                            {fameCounts
+                              ? `${fameCounts[option.value]} 部`
+                              : option.description}
+                          </small>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="tier-description">
+                      {
+                        fameOptions.find(
+                          (option) => option.value === selectedFameTier,
+                        )?.description
                       }
-                      placeholder="房间码"
+                    </p>
+                  </div>
+                  <div className="entry-actions">
+                    <button
+                      className="primary"
+                      disabled={!canEnter}
+                      onClick={createRoom}
+                    >
+                      {selectedMode === "solo" ? "进入单人准备" : "创建房间"}
+                    </button>
+                    <div className="join-control">
+                      <input
+                        value={joinCode}
+                        maxLength={5}
+                        onChange={(event) =>
+                          setJoinCode(event.target.value.toUpperCase())
+                        }
+                        placeholder="房间码"
+                      />
+                      <button
+                        disabled={!canEnter || joinCode.length !== 5}
+                        onClick={joinRoom}
+                      >
+                        加入
+                      </button>
+                    </div>
+                  </div>
+                  {error && <p className="error-message">{error}</p>}
+                </div>
+              ) : (
+                <section className="room-card" aria-live="polite">
+                  <div className="room-heading">
+                    <div>
+                      <small>ROOM CODE</small>
+                      <strong>{room.code}</strong>
+                    </div>
+                    <span>
+                      {room.rules.mode === "solo"
+                        ? "单人模式"
+                        : `${room.players.length} / ${room.rules.mode === "duel" ? 2 : 8} 人`}
+                    </span>
+                  </div>
+                  <div className="player-list">
+                    {room.players.map((player) => (
+                      <div key={player.id}>
+                        <i>{player.nickname.slice(0, 1).toUpperCase()}</i>
+                        <span>{player.nickname}</span>
+                        {player.id === room.hostPlayerId && <b>房主</b>}
+                        {player.ready && <b className="ready-mark">已准备</b>}
+                        {!player.connected && (
+                          <b className="offline-mark">离线</b>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {room.phase === "lobby" && (
+                    <div className="lobby-actions">
+                      {isHost ? (
+                        <button className="primary" onClick={startGame}>
+                          {room.rules.mode === "solo"
+                            ? "开始单人游戏"
+                            : "开始同题竞速"}
+                        </button>
+                      ) : (
+                        <button
+                          className={currentPlayer?.ready ? "ready" : ""}
+                          onClick={toggleReady}
+                        >
+                          {currentPlayer?.ready ? "取消准备" : "我准备好了"}
+                        </button>
+                      )}
+                      <p className="room-note">
+                        {isHost
+                          ? room.rules.mode === "solo"
+                            ? "确认规则后即可开局。"
+                            : "其他在线玩家准备后即可开局。"
+                          : "准备后等待房主开始。"}
+                      </p>
+                      <button className="leave-button" onClick={leaveRoom}>
+                        退出房间
+                      </button>
+                    </div>
+                  )}
+                  {room.phase !== "lobby" && (
+                    <div className="lobby-actions">
+                      <p className="room-note">
+                        本轮状态：
+                        {room.phase === "active" ? "游戏中" : "已结算"}
+                      </p>
+                      <button className="leave-button" onClick={leaveRoom}>
+                        退出游戏
+                      </button>
+                    </div>
+                  )}
+                  {error && <p className="error-message">{error}</p>}
+                </section>
+              )}
+            </div>
+
+            <aside className="rule-builder">
+              <div className="rule-builder-head">
+                <div>
+                  <small>ROOM RULES</small>
+                  <h2>这把比较什么？</h2>
+                </div>
+                <b>{selected.length} 项</b>
+              </div>
+              <p>
+                {room
+                  ? isHost
+                    ? "点击切换，房间内即时同步。"
+                    : "本局由房主选择。"
+                  : "创建房间后即可自选，至少保留 3 项。"}
+              </p>
+              <div className="comparison-grid">
+                {(Object.keys(comparisonLabels) as ComparisonKey[]).map(
+                  (key, index) => (
+                    <button
+                      key={key}
+                      className={selectedSet.has(key) ? "selected" : ""}
+                      disabled={!isHost}
+                      onClick={() => toggleComparison(key)}
+                    >
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      {comparisonLabels[key]}
+                      <i>{selectedSet.has(key) ? "✓" : "+"}</i>
+                    </button>
+                  ),
+                )}
+              </div>
+              <details className="comparison-notes">
+                <summary>黄色判定与符号说明</summary>
+                <ul>
+                  {comparisonRuleNotes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              </details>
+              {room && (
+                <section className="pool-builder">
+                  <div className="fame-rule-picker">
+                    <small>作品知名度</small>
+                    <div className="fame-picker">
+                      {fameOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          className={
+                            room.rules.pool.fameTier === option.value
+                              ? "selected"
+                              : ""
+                          }
+                          disabled={!isHost}
+                          onClick={() =>
+                            saveRules({
+                              ...room.rules,
+                              pool: {
+                                ...room.rules.pool,
+                                fameTier: option.value,
+                              },
+                            })
+                          }
+                          title={option.description}
+                        >
+                          <b>{option.label}</b>
+                          <small>
+                            {fameCounts ? `${fameCounts[option.value]} 部` : ""}
+                          </small>
+                        </button>
+                      ))}
+                    </div>
+                    <p>
+                      {
+                        fameOptions.find(
+                          (option) => option.value === room.rules.pool.fameTier,
+                        )?.description
+                      }
+                    </p>
+                  </div>
+                  <div className="pool-builder-head">
+                    <div>
+                      <small>ANSWER POOL</small>
+                      <h3>答案题池标签</h3>
+                    </div>
+                    <div className="tag-mode" aria-label="标签匹配方式">
+                      <button
+                        className={
+                          room.rules.pool.tagMode === "all" ? "selected" : ""
+                        }
+                        disabled={!isHost}
+                        onClick={() =>
+                          saveRules({
+                            ...room.rules,
+                            pool: { ...room.rules.pool, tagMode: "all" },
+                          })
+                        }
+                      >
+                        全部满足
+                      </button>
+                      <button
+                        className={
+                          room.rules.pool.tagMode === "any" ? "selected" : ""
+                        }
+                        disabled={!isHost}
+                        onClick={() =>
+                          saveRules({
+                            ...room.rules,
+                            pool: { ...room.rules.pool, tagMode: "any" },
+                          })
+                        }
+                      >
+                        任一满足
+                      </button>
+                    </div>
+                  </div>
+
+                  <p>选择答案必须包含的标签；留空表示不限制。</p>
+                  {availableTags.length > 0 && (
+                    <div className="tag-cloud">
+                      {availableTags.slice(0, 18).map((tag) => (
+                        <button
+                          key={tag.name}
+                          className={
+                            room.rules.pool.includeTags.includes(tag.name)
+                              ? "selected"
+                              : ""
+                          }
+                          disabled={!isHost}
+                          onClick={() => toggleIncludedTag(tag.name)}
+                        >
+                          {tag.name}
+                          <small>{tag.count}</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="tag-entry">
+                    <input
+                      value={includedTagInput}
+                      disabled={!isHost}
+                      onChange={(event) =>
+                        setIncludedTagInput(event.target.value)
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") addIncludedTag();
+                      }}
+                      placeholder="自定义包含标签"
                     />
                     <button
-                      disabled={!canEnter || joinCode.length !== 5}
-                      onClick={joinRoom}
+                      disabled={!isHost || !includedTagInput.trim()}
+                      onClick={addIncludedTag}
                     >
                       加入
                     </button>
                   </div>
-                </div>
-                {error && <p className="error-message">{error}</p>}
-              </div>
-            ) : (
-              <section className="room-card" aria-live="polite">
-                <div className="room-heading">
-                  <div>
-                    <small>ROOM CODE</small>
-                    <strong>{room.code}</strong>
-                  </div>
-                  <span>{room.players.length} / 8 人</span>
-                </div>
-                <div className="player-list">
-                  {room.players.map((player) => (
-                    <div key={player.id}>
-                      <i>{player.nickname.slice(0, 1).toUpperCase()}</i>
-                      <span>{player.nickname}</span>
-                      {player.id === room.hostPlayerId && <b>房主</b>}
-                      {player.ready && <b className="ready-mark">已准备</b>}
-                      {!player.connected && (
-                        <b className="offline-mark">离线</b>
-                      )}
+                  {room.rules.pool.includeTags.length > 0 && (
+                    <div className="selected-tags">
+                      {room.rules.pool.includeTags.map((tag) => (
+                        <button
+                          key={tag}
+                          disabled={!isHost}
+                          onClick={() => toggleIncludedTag(tag)}
+                        >
+                          {tag}
+                          <span>×</span>
+                        </button>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                {room.phase === "lobby" && (
-                  <div className="lobby-actions">
-                    {isHost ? (
-                      <button className="primary" onClick={startGame}>
-                        开始同题竞速
-                      </button>
-                    ) : (
-                      <button
-                        className={currentPlayer?.ready ? "ready" : ""}
-                        onClick={toggleReady}
-                      >
-                        {currentPlayer?.ready ? "取消准备" : "我准备好了"}
-                      </button>
-                    )}
-                    <p className="room-note">
-                      {isHost
-                        ? "其他在线玩家准备后即可开局。"
-                        : "准备后等待房主开始。"}
-                    </p>
-                  </div>
-                )}
-                {room.phase !== "lobby" && (
-                  <p className="room-note">
-                    本轮状态：{room.phase === "active" ? "竞速中" : "已结算"}
-                  </p>
-                )}
-                {error && <p className="error-message">{error}</p>}
-              </section>
-            )}
-          </div>
+                  )}
 
-          <aside className="rule-builder">
-            <div className="rule-builder-head">
-              <div>
-                <small>ROOM RULES</small>
-                <h2>这把比较什么？</h2>
-              </div>
-              <b>{selected.length} 项</b>
-            </div>
-            <p>
-              {room
-                ? isHost
-                  ? "点击切换，房间内即时同步。"
-                  : "本局由房主选择。"
-                : "创建房间后即可自选，至少保留 3 项。"}
-            </p>
-            <div className="comparison-grid">
-              {(Object.keys(comparisonLabels) as ComparisonKey[]).map(
-                (key, index) => (
-                  <button
-                    key={key}
-                    className={selectedSet.has(key) ? "selected" : ""}
-                    disabled={!isHost}
-                    onClick={() => toggleComparison(key)}
-                  >
-                    <span>{String(index + 1).padStart(2, "0")}</span>
-                    {comparisonLabels[key]}
-                    <i>{selectedSet.has(key) ? "✓" : "+"}</i>
-                  </button>
-                ),
-              )}
-            </div>
-            <details className="comparison-notes">
-              <summary>黄色判定与符号说明</summary>
-              <ul>
-                {comparisonRuleNotes.map((note) => (
-                  <li key={note}>{note}</li>
-                ))}
-              </ul>
-            </details>
-            {room && (
-              <section className="pool-builder">
-                <div className="pool-builder-head">
-                  <div>
-                    <small>ANSWER POOL</small>
-                    <h3>答案题池标签</h3>
-                  </div>
-                  <div className="tag-mode" aria-label="标签匹配方式">
-                    <button
-                      className={
-                        room.rules.pool.tagMode === "all" ? "selected" : ""
-                      }
-                      disabled={!isHost}
-                      onClick={() =>
-                        saveRules({
-                          ...room.rules,
-                          pool: { ...room.rules.pool, tagMode: "all" },
-                        })
-                      }
-                    >
-                      全部满足
-                    </button>
-                    <button
-                      className={
-                        room.rules.pool.tagMode === "any" ? "selected" : ""
-                      }
-                      disabled={!isHost}
-                      onClick={() =>
-                        saveRules({
-                          ...room.rules,
-                          pool: { ...room.rules.pool, tagMode: "any" },
-                        })
-                      }
-                    >
-                      任一满足
-                    </button>
-                  </div>
-                </div>
-
-                <p>选择答案必须包含的标签；留空表示不限制。</p>
-                {availableTags.length > 0 && (
-                  <div className="tag-cloud">
-                    {availableTags.slice(0, 18).map((tag) => (
-                      <button
-                        key={tag.name}
-                        className={
-                          room.rules.pool.includeTags.includes(tag.name)
-                            ? "selected"
-                            : ""
+                  <div className="pool-options">
+                    <label>
+                      <span>只要全年龄游戏</span>
+                      <input
+                        type="checkbox"
+                        checked={room.rules.pool.allAgesOnly}
+                        disabled={!isHost}
+                        onChange={(event) =>
+                          saveRules({
+                            ...room.rules,
+                            pool: {
+                              ...room.rules.pool,
+                              allAgesOnly: event.target.checked,
+                            },
+                          })
                         }
+                      />
+                    </label>
+                    <label>
+                      <span>标签剧透上限</span>
+                      <select
+                        value={room.rules.pool.maxTagSpoilerLevel}
                         disabled={!isHost}
-                        onClick={() => toggleIncludedTag(tag.name)}
+                        onChange={(event) =>
+                          saveRules({
+                            ...room.rules,
+                            pool: {
+                              ...room.rules.pool,
+                              maxTagSpoilerLevel: Number(event.target.value) as
+                                0 | 1 | 2,
+                            },
+                          })
+                        }
                       >
-                        {tag.name}
-                        <small>{tag.count}</small>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className="tag-entry">
-                  <input
-                    value={includedTagInput}
-                    disabled={!isHost}
-                    onChange={(event) =>
-                      setIncludedTagInput(event.target.value)
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") addIncludedTag();
-                    }}
-                    placeholder="自定义包含标签"
-                  />
-                  <button
-                    disabled={!isHost || !includedTagInput.trim()}
-                    onClick={addIncludedTag}
-                  >
-                    加入
-                  </button>
-                </div>
-                {room.rules.pool.includeTags.length > 0 && (
-                  <div className="selected-tags">
-                    {room.rules.pool.includeTags.map((tag) => (
-                      <button
-                        key={tag}
+                        <option value={0}>0 · 无剧透</option>
+                        <option value={1}>1 · 轻微剧透</option>
+                        <option value={2}>2 · 全部标签</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>每局时间</span>
+                      <select
+                        value={room.rules.roundTimeSeconds}
                         disabled={!isHost}
-                        onClick={() => toggleIncludedTag(tag)}
+                        onChange={(event) =>
+                          saveRules({
+                            ...room.rules,
+                            roundTimeSeconds: Number(event.target.value),
+                          })
+                        }
                       >
-                        {tag}
-                        <span>×</span>
-                      </button>
-                    ))}
+                        <option value={180}>3 分钟</option>
+                        <option value={300}>5 分钟</option>
+                        <option value={600}>10 分钟</option>
+                      </select>
+                    </label>
                   </div>
-                )}
 
-                <div className="pool-options">
-                  <label>
-                    <span>只要全年龄游戏</span>
+                  <p className="exclude-label">排除标签</p>
+                  <div className="tag-entry">
                     <input
-                      type="checkbox"
-                      checked={room.rules.pool.allAgesOnly}
+                      value={customTag}
                       disabled={!isHost}
-                      onChange={(event) =>
-                        saveRules({
-                          ...room.rules,
-                          pool: {
-                            ...room.rules.pool,
-                            allAgesOnly: event.target.checked,
-                          },
-                        })
-                      }
+                      onChange={(event) => setCustomTag(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") addExcludedTag();
+                      }}
+                      placeholder="例如：猎奇"
                     />
-                  </label>
-                  <label>
-                    <span>标签剧透上限</span>
-                    <select
-                      value={room.rules.pool.maxTagSpoilerLevel}
-                      disabled={!isHost}
-                      onChange={(event) =>
-                        saveRules({
-                          ...room.rules,
-                          pool: {
-                            ...room.rules.pool,
-                            maxTagSpoilerLevel: Number(event.target.value) as
-                              0 | 1 | 2,
-                          },
-                        })
-                      }
+                    <button
+                      disabled={!isHost || !customTag.trim()}
+                      onClick={addExcludedTag}
                     >
-                      <option value={0}>0 · 无剧透</option>
-                      <option value={1}>1 · 轻微剧透</option>
-                      <option value={2}>2 · 全部标签</option>
-                    </select>
-                  </label>
-                </div>
-
-                <p className="exclude-label">排除标签</p>
-                <div className="tag-entry">
-                  <input
-                    value={customTag}
-                    disabled={!isHost}
-                    onChange={(event) => setCustomTag(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") addExcludedTag();
-                    }}
-                    placeholder="例如：猎奇"
-                  />
-                  <button
-                    disabled={!isHost || !customTag.trim()}
-                    onClick={addExcludedTag}
-                  >
-                    排除
-                  </button>
-                </div>
-                {room.rules.pool.excludeTags.length > 0 && (
-                  <div className="selected-tags excluded-tags">
-                    {room.rules.pool.excludeTags.map((tag) => (
-                      <button
-                        key={tag}
-                        disabled={!isHost}
-                        onClick={() => removeExcludedTag(tag)}
-                      >
-                        {tag}
-                        <span>×</span>
-                      </button>
-                    ))}
+                      排除
+                    </button>
                   </div>
-                )}
-              </section>
-            )}
-          </aside>
-        </section>
+                  {room.rules.pool.excludeTags.length > 0 && (
+                    <div className="selected-tags excluded-tags">
+                      {room.rules.pool.excludeTags.map((tag) => (
+                        <button
+                          key={tag}
+                          disabled={!isHost}
+                          onClick={() => removeExcludedTag(tag)}
+                        >
+                          {tag}
+                          <span>×</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+            </aside>
+          </section>
+        )}
 
         {room?.round && game && (
           <section className="game-stage">
@@ -747,34 +1002,51 @@ export function App() {
                 <b>{game.attemptsLeft}</b>
                 <span>剩余猜测</span>
               </div>
+              {game.status === "active" && (
+                <div
+                  className={`round-countdown ${remainingSeconds <= 30 ? "urgent" : ""}`}
+                  role="timer"
+                  aria-live={remainingSeconds <= 30 ? "polite" : "off"}
+                >
+                  <span>剩余时间</span>
+                  <b>{formatCountdown(remainingSeconds)}</b>
+                </div>
+              )}
+              <button className="game-exit" onClick={leaveRoom}>
+                退出游戏
+              </button>
             </div>
 
             {game.status === "active" ? (
-              <div className="game-search">
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="作品名 / 别名 / 开发会社"
-                />
-                {searchItems.length > 0 && (
-                  <div className="game-suggestions">
-                    {searchItems.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => submitVisualNovel(item)}
-                      >
-                        <b>{item.title}</b>
-                        <span>
-                          {item.match.type === "developer"
-                            ? `会社 · ${item.match.value}`
-                            : item.aliases.slice(0, 2).join(" · ") ||
-                              `标题 · ${item.match.value}`}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              remainingSeconds > 0 ? (
+                <div className="game-search">
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="作品名 / 别名 / 开发会社"
+                  />
+                  {searchItems.length > 0 && (
+                    <div className="game-suggestions">
+                      {searchItems.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => submitVisualNovel(item)}
+                        >
+                          <b>{item.title}</b>
+                          <span>
+                            {item.match.type === "developer"
+                              ? `会社 · ${item.match.value}`
+                              : item.aliases.slice(0, 2).join(" · ") ||
+                                `标题 · ${item.match.value}`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="timer-settling">时间到，正在等待本轮结算……</div>
+              )
             ) : (
               <div className="answer-banner">
                 <span>
@@ -786,20 +1058,60 @@ export function App() {
               </div>
             )}
 
-            <div className="race-progress">
-              {room.round.players.map((playerProgress) => {
-                const player = room.players.find(
-                  (item) => item.id === playerProgress.playerId,
-                );
-                return (
-                  <div key={playerProgress.playerId}>
-                    <span>{player?.nickname ?? "玩家"}</span>
-                    <b>{playerProgress.guessCount} 次</b>
-                    <i>{playerProgress.status}</i>
-                  </div>
-                );
-              })}
-            </div>
+            {room.rules.mode === "duel" ? (
+              <div className="duel-progress" aria-label="1v1 答题进度">
+                {room.round.players
+                  .slice()
+                  .sort((left, right) =>
+                    left.playerId === session?.playerId
+                      ? -1
+                      : right.playerId === session?.playerId
+                        ? 1
+                        : 0,
+                  )
+                  .map((playerProgress) => {
+                    const player = room.players.find(
+                      (item) => item.id === playerProgress.playerId,
+                    );
+                    const isSelf =
+                      playerProgress.playerId === session?.playerId;
+                    return (
+                      <div
+                        key={playerProgress.playerId}
+                        className={isSelf ? "self" : "opponent"}
+                      >
+                        <small>{isSelf ? "自己" : "对手"}</small>
+                        <span>{player?.nickname ?? "玩家"}</span>
+                        <b>
+                          {formatGuessStars(
+                            playerProgress.guessCount,
+                            room.rules.maxGuesses,
+                          )}
+                        </b>
+                        <i>
+                          {playerProgress.guessCount} / {room.rules.maxGuesses}{" "}
+                          次
+                        </i>
+                      </div>
+                    );
+                  })}
+              </div>
+            ) : room.rules.mode === "race" ? (
+              <div className="race-progress">
+                {room.round.players.map((playerProgress) => {
+                  const player = room.players.find(
+                    (item) => item.id === playerProgress.playerId,
+                  );
+                  return (
+                    <div key={playerProgress.playerId}>
+                      <span>{player?.nickname ?? "玩家"}</span>
+                      <b>{playerProgress.guessCount} 次</b>
+                      <i>{playerProgress.status}</i>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
 
             <div className="guess-history">
               {game.guesses.length === 0 ? (
@@ -852,39 +1164,43 @@ export function App() {
           </section>
         )}
 
-        <section id="modes" className="feature-strip">
-          <article>
-            <b>01</b>
-            <h2>单人推理</h2>
-            <p>随机题与每日同题，猜错也会缩小范围。</p>
-          </article>
-          <article>
-            <b>02</b>
-            <h2>同题竞速</h2>
-            <p>房间同步开局，按猜中速度与尝试次数结算。</p>
-          </article>
-          <article>
-            <b>03</b>
-            <h2>规则自己定</h2>
-            <p>比较列、题池标签、剧透等级与全年龄筛选由房间规则保存。</p>
-          </article>
-        </section>
+        {(!room?.round || !game) && (
+          <section id="modes" className="feature-strip">
+            <article>
+              <b>01</b>
+              <h2>单人推理</h2>
+              <p>随机题与每日同题，猜错也会缩小范围。</p>
+            </article>
+            <article>
+              <b>02</b>
+              <h2>同题竞速</h2>
+              <p>房间同步开局，按猜中速度与尝试次数结算。</p>
+            </article>
+            <article>
+              <b>03</b>
+              <h2>规则自己定</h2>
+              <p>比较列、题池标签、剧透等级与全年龄筛选由房间规则保存。</p>
+            </article>
+          </section>
+        )}
 
-        <section id="data" className="data-note">
-          <p className="eyebrow">SOURCE-AWARE DATABASE</p>
-          <h2>两套资料库，不做含糊拼接。</h2>
-          <p>
-            VNDB 与 Bangumi
-            原始记录分开同步，每个展示字段保留来源；同名、重制、FD
-            和合集冲突会进入映射审核。
-          </p>
-          <div>
-            <span>VNDB</span>
-            <i>规范标签 · 制作人员 · 语言平台</i>
-            <span>BANGUMI</span>
-            <i>中文社区标题 · 公共标签 · 评分统计</i>
-          </div>
-        </section>
+        {(!room?.round || !game) && (
+          <section id="data" className="data-note">
+            <p className="eyebrow">SOURCE-AWARE DATABASE</p>
+            <h2>两套资料库，不做含糊拼接。</h2>
+            <p>
+              VNDB 与 Bangumi
+              原始记录分开同步，每个展示字段保留来源；同名、重制、FD
+              和合集冲突会进入映射审核。
+            </p>
+            <div>
+              <span>VNDB</span>
+              <i>规范标签 · 制作人员 · 语言平台</i>
+              <span>BANGUMI</span>
+              <i>中文社区标题 · 公共标签 · 评分统计</i>
+            </div>
+          </section>
+        )}
       </main>
 
       <footer>

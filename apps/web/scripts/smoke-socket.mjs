@@ -22,6 +22,8 @@ let reconnectedHost;
 try {
   const created = await emitWithAcknowledgement(host, "room:create", {
     nickname: "房主",
+    mode: "race",
+    fameTier: "standard",
   });
   if (!created.ok) throw new Error(`room:create failed: ${created.error}`);
 
