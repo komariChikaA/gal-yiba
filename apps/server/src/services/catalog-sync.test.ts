@@ -10,6 +10,7 @@ let service: CatalogSyncService;
 
 function record(
   source: SourceVisualNovel["source"] = "vndb",
+  overrides: Partial<SourceVisualNovel> = {},
 ): SourceVisualNovel {
   return {
     source,
@@ -28,6 +29,7 @@ function record(
     tags: [],
     raw: {},
     fetchedAt: "2026-08-08T00:00:00.000Z",
+    ...overrides,
   };
 }
 
@@ -107,5 +109,45 @@ describe("CatalogSyncService", () => {
       "SELECT link_status, confidence FROM source_links WHERE source = 'bangumi'",
     );
     expect(link.rows[0]).toEqual({ link_status: "suggested", confidence: 100 });
+  });
+
+  it("finds a cross-source candidate through a normalized alternative title", async () => {
+    await service.syncPage("vndb", "1", async () => ({
+      items: [
+        record("vndb", {
+          title: "Senren * Banka",
+          alternativeTitles: ["千恋＊万花"],
+          releaseDate: "2016-07-29",
+        }),
+      ],
+      hasMore: false,
+      nextCursor: null,
+    }));
+    await service.syncPage("bangumi", "0", async () => ({
+      items: [
+        record("bangumi", {
+          title: "千恋万花",
+          alternativeTitles: ["Senren＊Banka"],
+          releaseDate: "2016-07-29",
+        }),
+      ],
+      hasMore: false,
+      nextCursor: null,
+    }));
+    const link = await pool.query<{
+      link_status: string;
+      confidence: number;
+      evidence: { exactTitle: boolean; titleOverlap: string[] };
+    }>(
+      "SELECT link_status, confidence, evidence FROM source_links WHERE source = 'bangumi'",
+    );
+    expect(link.rows[0]).toMatchObject({
+      link_status: "suggested",
+      confidence: 100,
+      evidence: {
+        exactTitle: true,
+        titleOverlap: ["senrenbanka", "千恋万花"],
+      },
+    });
   });
 });

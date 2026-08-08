@@ -30,7 +30,7 @@ source_records(vndb:v17) ----\
 source_records(bangumi:237) --/
 ```
 
-自动映射只产生“候选”：规范化标题 + 日期 + 开发者均能支持时才高置信通过；歧义项进入人工审核。VNDB 与 Bangumi 的评分和票数分别保留，不做平均。每个规范化字段记录 `source`、`source_id`、`synced_at` 与转换版本。
+自动映射只产生“候选”：主标题和全部别名先统一宽度、大小写与标点后建立可检索键，再结合日期和平台计算置信度；歧义项进入人工审核。VNDB 与 Bangumi 的评分和票数分别保留，不做平均。每个规范化字段记录 `source`、`source_id`、`synced_at` 与转换版本。
 
 ## 图片与文本
 

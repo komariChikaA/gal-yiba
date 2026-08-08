@@ -52,7 +52,43 @@ describe("database migrations", () => {
     const result = await pool.query<{ version: number }>(
       "SELECT version FROM schema_migrations",
     );
-    expect(result.rows).toEqual([{ version: 1 }]);
+    expect(result.rows).toEqual([{ version: 1 }, { version: 2 }]);
+  });
+
+  it("backfills normalized alias keys for records created before migration 2", async () => {
+    const legacy = sourceRecord({
+      title: "Senren * Banka",
+      alternativeTitles: ["千恋＊万花"],
+    });
+    await pool.query(
+      `INSERT INTO source_records
+        (source, source_id, title, normalized_title, release_date, normalized, raw, content_hash, fetched_at, title_keys, title_keys_version)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9, $10, 0)`,
+      [
+        legacy.source,
+        legacy.sourceId,
+        legacy.title,
+        "senrenbanka",
+        legacy.releaseDate,
+        JSON.stringify(legacy),
+        JSON.stringify(legacy.raw),
+        "legacy-hash",
+        legacy.fetchedAt,
+        [],
+      ],
+    );
+    await migrateDatabase(pool);
+    const result = await pool.query<{
+      title_keys: string[];
+      title_keys_version: number;
+    }>(
+      "SELECT title_keys, title_keys_version FROM source_records WHERE source = $1 AND source_id = $2",
+      [legacy.source, legacy.sourceId],
+    );
+    expect(result.rows[0]).toEqual({
+      title_keys: ["senrenbanka", "千恋万花"],
+      title_keys_version: 1,
+    });
   });
 });
 

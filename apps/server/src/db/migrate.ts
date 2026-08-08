@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Pool, PoolClient } from "pg";
+import { normalizeTitle, type SourceVisualNovel } from "@gal-yiba/data";
 
 export interface Migration {
   version: number;
@@ -10,7 +11,34 @@ export interface Migration {
 
 export const migrations: Migration[] = [
   { version: 1, filename: "001_initial.sql" },
+  { version: 2, filename: "002_source_title_keys.sql" },
 ];
+
+function titleKeys(record: SourceVisualNovel): string[] {
+  return [
+    ...new Set(
+      [record.title, ...record.alternativeTitles]
+        .map(normalizeTitle)
+        .filter(Boolean),
+    ),
+  ];
+}
+
+async function backfillSourceTitleKeys(client: PoolClient): Promise<void> {
+  const pending = await client.query<{
+    source: SourceVisualNovel["source"];
+    source_id: string;
+    normalized: SourceVisualNovel;
+  }>(
+    "SELECT source, source_id, normalized FROM source_records WHERE title_keys_version < 1",
+  );
+  for (const row of pending.rows) {
+    await client.query(
+      "UPDATE source_records SET title_keys = $3, title_keys_version = 1 WHERE source = $1 AND source_id = $2",
+      [row.source, row.source_id, titleKeys(row.normalized)],
+    );
+  }
+}
 
 export async function migrateDatabase(
   pool: Pick<Pool, "connect">,
@@ -42,6 +70,7 @@ export async function migrateDatabase(
         migration.version,
       ]);
     }
+    await backfillSourceTitleKeys(client);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");

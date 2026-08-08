@@ -27,6 +27,16 @@ export function sourceRecordHash(record: SourceVisualNovel): string {
   return createHash("sha256").update(stableJson(hashable)).digest("hex");
 }
 
+export function sourceRecordTitleKeys(record: SourceVisualNovel): string[] {
+  return [
+    ...new Set(
+      [record.title, ...record.alternativeTitles]
+        .map(normalizeTitle)
+        .filter(Boolean),
+    ),
+  ];
+}
+
 export interface MappingSuggestion {
   canonicalId: string;
   canonicalTitle: string;
@@ -52,11 +62,13 @@ export class CatalogRepository {
 
     await this.database.query(
       `INSERT INTO source_records
-        (source, source_id, title, normalized_title, release_date, normalized, raw, content_hash, fetched_at)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8, $9)
+        (source, source_id, title, normalized_title, title_keys, title_keys_version, release_date, normalized, raw, content_hash, fetched_at)
+       VALUES ($1, $2, $3, $4, $5, 1, $6, $7::jsonb, $8::jsonb, $9, $10)
        ON CONFLICT (source, source_id) DO UPDATE SET
          title = EXCLUDED.title,
          normalized_title = EXCLUDED.normalized_title,
+         title_keys = EXCLUDED.title_keys,
+         title_keys_version = EXCLUDED.title_keys_version,
          release_date = EXCLUDED.release_date,
          normalized = EXCLUDED.normalized,
          raw = EXCLUDED.raw,
@@ -68,6 +80,7 @@ export class CatalogRepository {
         record.sourceId,
         record.title,
         normalizeTitle(record.title),
+        sourceRecordTitleKeys(record),
         record.releaseDate,
         JSON.stringify(record),
         JSON.stringify(record.raw),
@@ -122,20 +135,13 @@ export class CatalogRepository {
   async findCrossSourceCandidates(
     record: SourceVisualNovel,
   ): Promise<SourceVisualNovel[]> {
-    const keys = [
-      ...new Set(
-        [record.title, ...record.alternativeTitles]
-          .map(normalizeTitle)
-          .filter(Boolean),
-      ),
-    ];
+    const keys = sourceRecordTitleKeys(record);
     if (keys.length === 0) return [];
-    const placeholders = keys.map((_, index) => `$${index + 2}`).join(", ");
     const result = await this.database.query<{ normalized: SourceVisualNovel }>(
       `SELECT normalized FROM source_records
-       WHERE source <> $1 AND normalized_title IN (${placeholders})
-       LIMIT 20`,
-      [record.source, ...keys],
+       WHERE source <> $1 AND title_keys && $2::text[]
+       LIMIT 100`,
+      [record.source, keys],
     );
     return result.rows.map((row) => row.normalized);
   }
