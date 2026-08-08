@@ -2,11 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
 import {
   defaultComparisonKeys,
+  voteTierThresholds,
   type ComparisonKey,
   type ComparisonResult,
   type GameRules,
 } from "@gal-yiba/shared";
-import { formatComparisonValue } from "./comparison-format";
+import {
+  formatComparisonValue,
+  formatComparisonVerdict,
+} from "./comparison-format";
 
 const socket = io({ autoConnect: true });
 
@@ -27,6 +31,30 @@ const comparisonLabels: Record<ComparisonKey, string> = {
   languages: "本地化语言",
   tags: "作品标签",
 };
+
+function formatTierRanges(thresholds: readonly number[]): string {
+  return thresholds
+    .map((threshold, index) => {
+      const start = index === 0 ? 0 : thresholds[index - 1]!;
+      return `${start.toLocaleString("zh-CN")}–${(threshold - 1).toLocaleString("zh-CN")}`;
+    })
+    .concat(`${thresholds.at(-1)?.toLocaleString("zh-CN")}+`)
+    .join(" / ");
+}
+
+const comparisonRuleNotes = [
+  "作品名：有可靠的 VNDB 官方关系且属于同系列时为黄色。",
+  "会社：父子品牌为黄色；命中部分会社时，答案会社更多显示 +，更少显示 −。",
+  "脚本家、女主发色：有交集时为黄色，并用 + / − 表示答案的登记人数或主要女角色发色数更多/更少；VNDB 脚本担当不区分主次。",
+  "年份：只采用官方 complete 正式版的最早年份；相差 5 年以内为黄色，并用 ↑ / ↓ 指向答案年份。",
+  "时长：相邻一个时长级别为黄色，并显示 ↑ / ↓。",
+  "评分：VNDB 与 Bangumi 分开比较，相差不超过 1.0 分为黄色。",
+  `VNDB 热度档：${formatTierRanges(voteTierThresholds.vndbVoteCount)}；同档绿色、相邻档黄色。`,
+  `Bangumi 热度档：${formatTierRanges(voteTierThresholds.bangumiVoteCount)}；同档绿色、相邻档黄色。`,
+  "动画化：已宣布但尚未播出的作品显示黄色；没有可靠播出状态时不会猜测。",
+  "全年龄：只有一致或不符，不使用黄色；非成人内容的 15+ 发行版按全年龄侧处理。",
+  "平台：有共同平台时为黄色；答案还有更多主要平台时显示 +。标签有部分交集时为黄色。",
+];
 
 interface RoomPlayer {
   id: string;
@@ -61,6 +89,7 @@ interface GuessRecord {
   guessNumber: number;
   visualNovelId: string;
   title: string;
+  titleStatus: "exact" | "partial" | "miss";
   comparison: ComparisonResult[];
   isCorrect: boolean;
   guessedAt: string;
@@ -522,6 +551,14 @@ export function App() {
                 ),
               )}
             </div>
+            <details className="comparison-notes">
+              <summary>黄色判定与符号说明</summary>
+              <ul>
+                {comparisonRuleNotes.map((note) => (
+                  <li key={note}>{note}</li>
+                ))}
+              </ul>
+            </details>
             {room && (
               <section className="pool-builder">
                 <div className="pool-builder-head">
@@ -772,9 +809,13 @@ export function App() {
                   .reverse()
                   .map((guess) => (
                     <article key={guess.visualNovelId}>
-                      <header>
+                      <header className={`title-${guess.titleStatus}`}>
                         <b>{guess.title}</b>
-                        <span>第 {guess.guessNumber} 次</span>
+                        <span>
+                          {guess.titleStatus === "partial" && "同系列 · "}
+                          {guess.titleStatus === "exact" && "答案 · "}第{" "}
+                          {guess.guessNumber} 次
+                        </span>
                       </header>
                       <div>
                         {guess.comparison.map((result) => (
@@ -790,13 +831,7 @@ export function App() {
                               {formatComparisonValue(result)}
                             </strong>
                             <span className="comparison-verdict">
-                              {result.status === "exact"
-                                ? "一致"
-                                : result.status === "partial"
-                                  ? "部分"
-                                  : result.status === "unknown"
-                                    ? "未知"
-                                    : "不符"}
+                              {formatComparisonVerdict(result)}
                               {result.direction && (
                                 <i>
                                   {result.direction === "higher" ? "↑" : "↓"}

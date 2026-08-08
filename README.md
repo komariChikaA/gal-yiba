@@ -18,6 +18,7 @@
 - 答案题池包含/排除标签、全部/任一匹配、标签剧透等级和“只要全年龄游戏”开关；默认包含所有年龄分类
 - 作品名、别名模糊搜索；输入开发会社名可列出该会社作品，并显示命中原因
 - VNDB/Bangumi 原始记录分表保存，VNDB 作为规范主干，跨库映射先进入审核状态
+- 黄色判定、符号方向与双库热度分档见 [`docs/COMPARISON_RULES.md`](docs/COMPARISON_RULES.md)
 - PostgreSQL 持久化题库，生产环境以 Docker Compose 运行应用、PostgreSQL 与 Redis
 
 ## 尚未完成

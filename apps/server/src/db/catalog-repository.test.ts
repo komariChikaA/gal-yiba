@@ -170,6 +170,11 @@ describe("CatalogRepository", () => {
 
   it("builds a playable catalog only from verified links and preserves spoiler metadata", async () => {
     const vndb = sourceRecord({
+      developers: ["Key"],
+      developerIds: ["p24"],
+      publishers: ["VISUAL ARTS Co.,Ltd."],
+      publisherIds: ["p993"],
+      seriesIds: ["v17", "v13"],
       platforms: ["win", "and", "ios", "web", "ps4", "ps5", "swi"],
       tags: [
         { id: "g1", name: "Mystery", spoilerLevel: 0, score: 2.8 },
@@ -186,7 +191,10 @@ describe("CatalogRepository", () => {
     expect(catalog[0]).toMatchObject({
       id: canonicalId,
       title: "Ever17",
-      developer: ["KID"],
+      developer: ["Key"],
+      developerFamilyIds: ["visual-arts"],
+      publisher: ["VISUAL ARTS Co.,Ltd."],
+      seriesIds: ["vndb:v17", "vndb:v13"],
       scenarioWriter: ["Writer"],
       heroineHairColor: ["brown", "blue"],
       releaseYear: 2002,

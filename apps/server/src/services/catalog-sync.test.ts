@@ -112,6 +112,32 @@ describe("CatalogSyncService", () => {
     expect(link.rows[0]).toEqual({ link_status: "suggested", confidence: 100 });
   });
 
+  it("does not demote an existing verified Bangumi link during refresh", async () => {
+    await service.syncPage("vndb", "1", async () => ({
+      items: [record("vndb")],
+      hasMore: false,
+      nextCursor: null,
+    }));
+    await service.syncPage("bangumi", "0", async () => ({
+      items: [record("bangumi")],
+      hasMore: false,
+      nextCursor: null,
+    }));
+    const repository = new CatalogRepository(pool);
+    await repository.reviewMappingSuggestion("bangumi", "1", "verified");
+
+    await service.syncPage("bangumi", "refresh", async () => ({
+      items: [record("bangumi", { rating: 8.2 })],
+      hasMore: false,
+      nextCursor: null,
+    }));
+
+    const link = await pool.query<{ link_status: string }>(
+      "SELECT link_status FROM source_links WHERE source = 'bangumi'",
+    );
+    expect(link.rows).toEqual([{ link_status: "verified" }]);
+  });
+
   it("finds a cross-source candidate through a normalized alternative title", async () => {
     await service.syncPage("vndb", "1", async () => ({
       items: [

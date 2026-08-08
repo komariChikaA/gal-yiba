@@ -7,6 +7,7 @@ const enumValueLabels: Record<string, string> = {
   long: "长篇",
   very_long: "超长篇",
   none: "无动画",
+  announced: "已宣布，尚未播出",
   has_adaptation: "有动画化记录",
   all_ages: "全年龄",
   restricted: "限制级",
@@ -40,4 +41,20 @@ export function formatComparisonValue(result: ComparisonResult): string {
       : String(value);
   }
   return enumValueLabels[value] ?? value;
+}
+
+export function formatComparisonVerdict(result: ComparisonResult): string {
+  if (result.status === "unknown") return "未知";
+  if (result.status === "miss") return "不符";
+  if (result.hint === "same_family") return "关联会社";
+
+  const base =
+    result.basis === "tier"
+      ? result.status === "exact"
+        ? "同档"
+        : "相邻档"
+      : result.status === "exact"
+        ? "一致"
+        : "部分";
+  return `${base}${result.hint === "more" ? " +" : result.hint === "fewer" ? " −" : ""}`;
 }

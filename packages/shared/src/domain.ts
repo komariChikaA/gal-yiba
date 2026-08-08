@@ -34,7 +34,7 @@ export const defaultComparisonKeys = [
 ] as const satisfies readonly ComparisonKey[];
 
 export type Playtime = "very_short" | "short" | "medium" | "long" | "very_long";
-export type AnimeAdaptation = "none" | "has_adaptation";
+export type AnimeAdaptation = "none" | "announced" | "has_adaptation";
 export type AgeRating = "all_ages" | "restricted" | "unknown";
 export type HeroineHairColor =
   | "black"
@@ -85,6 +85,8 @@ export interface VisualNovel {
   languages: string[] | null;
   tags: string[] | null;
   tagDetails?: VisualNovelTag[] | null;
+  seriesIds?: string[] | null;
+  developerFamilyIds?: string[] | null;
   provenance: Partial<Record<ComparisonKey | "title", Provenance[]>>;
 }
 
@@ -108,11 +110,15 @@ export interface GameRules {
 
 export type ComparisonStatus = "exact" | "partial" | "miss" | "unknown";
 export type ComparisonDirection = "higher" | "lower";
+export type ComparisonHint = "more" | "fewer" | "same_family";
+export type ComparisonBasis = "value" | "tier";
 
 export interface ComparisonResult {
   key: ComparisonKey;
   status: ComparisonStatus;
   direction?: ComparisonDirection;
+  hint?: ComparisonHint;
+  basis?: ComparisonBasis;
   overlap?: string[];
   guessValue: string | number | string[] | null;
 }

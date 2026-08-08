@@ -29,6 +29,10 @@ export interface SourceVisualNovel {
   alternativeTitles: string[];
   releaseDate: string | null;
   developers: string[];
+  developerIds?: string[];
+  developerFamilyIds?: string[];
+  publishers?: string[];
+  publisherIds?: string[];
   scenarioWriters: string[];
   playtime: 1 | 2 | 3 | 4 | 5 | null;
   platforms: string[];
@@ -37,8 +41,9 @@ export interface SourceVisualNovel {
   voteCount: number | null;
   popularity: number | null;
   heroineHairColors?: SourceHeroineHairColor[];
-  animeAdaptation?: "none" | "has_adaptation" | "unknown";
+  animeAdaptation?: "none" | "announced" | "has_adaptation" | "unknown";
   ageRating?: "all_ages" | "restricted" | "unknown";
+  seriesIds?: string[];
   tags: SourceTag[];
   raw: unknown;
   fetchedAt: string;

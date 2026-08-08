@@ -100,7 +100,13 @@ export class CatalogSyncService {
         ) {
           await this.repository.createCanonicalFromSource(record);
         }
-        if (source === "bangumi") {
+        if (
+          source === "bangumi" &&
+          (await this.repository.findCanonicalIdBySource(
+            record.source,
+            record.sourceId,
+          )) == null
+        ) {
           await this.suggestBangumiMapping(record);
         }
       }

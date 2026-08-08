@@ -11,6 +11,13 @@ import {
   type VisualNovelTag,
 } from "@gal-yiba/shared";
 
+const curatedVndbProducerFamily = new Map([
+  ["p24", "visual-arts"],
+  ["p993", "visual-arts"],
+  ["p98", "yuzusoft"],
+  ["p12215", "yuzusoft"],
+]);
+
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -164,6 +171,31 @@ export class CatalogRepository {
       [source, Math.max(1, Math.min(20_000, limit))],
     );
     return result.rows.map((row) => row.normalized);
+  }
+
+  async listSourceIds(
+    source: SourceVisualNovel["source"],
+    linkedOnly = false,
+  ): Promise<string[]> {
+    const result = await this.database.query<{ source_id: string }>(
+      linkedOnly
+        ? `SELECT sr.source_id
+           FROM source_records sr
+           WHERE sr.source = $1
+             AND EXISTS (
+               SELECT 1 FROM source_links sl
+               WHERE sl.source = sr.source
+                 AND sl.source_id = sr.source_id
+                 AND sl.link_status = 'verified'
+             )
+           ORDER BY sr.source_id ASC`
+        : `SELECT source_id
+           FROM source_records
+           WHERE source = $1
+           ORDER BY source_id ASC`,
+      [source],
+    );
+    return result.rows.map((row) => row.source_id);
   }
 
   async suggestLink(
@@ -348,9 +380,44 @@ export class CatalogRepository {
     const sourceAgeRating =
       vndbRecord?.ageRating ?? bangumiRecord?.ageRating ?? "unknown";
     const sourceAnimeAdaptation =
-      vndbRecord?.animeAdaptation ??
-      bangumiRecord?.animeAdaptation ??
-      "unknown";
+      bangumiRecord?.animeAdaptation === "announced"
+        ? "announced"
+        : vndbRecord?.animeAdaptation === "has_adaptation" ||
+            bangumiRecord?.animeAdaptation === "has_adaptation"
+          ? "has_adaptation"
+          : vndbRecord?.animeAdaptation === "none" ||
+              bangumiRecord?.animeAdaptation === "none"
+            ? "none"
+            : "unknown";
+    const animeAdaptationSource =
+      bangumiRecord?.animeAdaptation === "announced"
+        ? "bangumi"
+        : vndbRecord?.animeAdaptation === "has_adaptation"
+          ? "vndb"
+          : bangumiRecord?.animeAdaptation === "has_adaptation"
+            ? "bangumi"
+            : vndbRecord?.animeAdaptation === "none"
+              ? "vndb"
+              : bangumiRecord?.animeAdaptation === "none"
+                ? "bangumi"
+                : null;
+    const developerFamilyIds = unique(
+      records.flatMap((record) => [
+        ...(record.developerFamilyIds ?? []),
+        ...(record.source === "vndb"
+          ? (record.developerIds ?? [])
+              .map((producerId) => curatedVndbProducerFamily.get(producerId))
+              .filter((familyId): familyId is string => familyId != null)
+          : []),
+      ]),
+    );
+    const seriesIds = unique(
+      records.flatMap((record) =>
+        (record.seriesIds ?? []).map(
+          (sourceSeriesId) => `${record.source}:${sourceSeriesId}`,
+        ),
+      ),
+    );
 
     return {
       id,
@@ -362,7 +429,9 @@ export class CatalogRepository {
         ]),
       ).filter((title) => title !== displayTitle),
       developer: nullableUnique(records.flatMap((record) => record.developers)),
-      publisher: null,
+      publisher: nullableUnique(
+        records.flatMap((record) => record.publishers ?? []),
+      ),
       scenarioWriter: nullableUnique(
         records.flatMap((record) => record.scenarioWriters),
       ),
@@ -380,6 +449,7 @@ export class CatalogRepository {
       bangumiVoteCount: bangumiRecord?.voteCount ?? null,
       animeAdaptation:
         sourceAnimeAdaptation === "none" ||
+        sourceAnimeAdaptation === "announced" ||
         sourceAnimeAdaptation === "has_adaptation"
           ? sourceAnimeAdaptation
           : null,
@@ -393,9 +463,13 @@ export class CatalogRepository {
       languages: unique(records.flatMap((record) => record.languages)),
       tags: defaultTags.map((tag) => tag.name),
       tagDetails,
+      seriesIds: seriesIds.length > 0 ? seriesIds : null,
+      developerFamilyIds:
+        developerFamilyIds.length > 0 ? developerFamilyIds : null,
       provenance: {
         title: provenanceFor,
         developer: provenanceFor,
+        publisher: provenanceFor,
         scenarioWriter: provenanceFor,
         releaseYear: provenanceFor,
         playtime: provenanceFor,
@@ -407,9 +481,9 @@ export class CatalogRepository {
         vndbVoteCount: provenanceForSource("vndb"),
         bangumiVoteCount: provenanceForSource("bangumi"),
         animeAdaptation:
-          sourceAnimeAdaptation === "unknown"
+          sourceAnimeAdaptation === "unknown" || animeAdaptationSource == null
             ? []
-            : provenanceForSource(vndbRecord ? "vndb" : "bangumi"),
+            : provenanceForSource(animeAdaptationSource),
         ageRating:
           sourceAgeRating === "unknown"
             ? []

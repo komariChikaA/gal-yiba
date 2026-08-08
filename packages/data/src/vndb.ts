@@ -28,7 +28,7 @@ const hairColorOrder = new Map(
 );
 
 const visualNovelFields =
-  "id,title,alttitle,aliases,titles{title,lang,main},released,developers{id,name},staff{id,name,role},length,languages,platforms,rating,votecount,popularity,tags{id,name,rating,spoiler,category}";
+  "id,title,alttitle,aliases,titles{title,lang,main},released,developers{id,name},staff{id,name,role},relations{id,relation,relation_official},length,languages,platforms,rating,votecount,popularity,tags{id,name,rating,spoiler,category}";
 
 export type VndbVisualNovelSort = "id" | "released" | "rating" | "votecount";
 
@@ -60,6 +60,11 @@ interface VndbVisualNovel {
   released: string | null;
   developers: Array<{ id: string; name: string }>;
   staff: Array<{ id: string; name: string; role: string }>;
+  relations: Array<{
+    id: string;
+    relation: string;
+    relation_official: boolean;
+  }>;
   length: number | null;
   languages: string[];
   platforms: string[];
@@ -87,10 +92,18 @@ interface VndbProducerResponse {
 }
 
 interface VndbRelease {
+  released: string | null;
   minage: number | null;
   has_ero: boolean;
   official: boolean;
-  vns: Array<{ id: string }>;
+  platforms: string[];
+  vns: Array<{ id: string; rtype: "trial" | "partial" | "complete" }>;
+  producers: Array<{
+    id: string;
+    name: string;
+    developer: boolean;
+    publisher: boolean;
+  }>;
 }
 
 interface VndbReleaseResponse {
@@ -128,6 +141,19 @@ interface HeroineHairEvidence {
     id: string;
     name: string;
     colors: SourceHeroineHairColor[];
+  }>;
+}
+
+interface ReleaseEvidence {
+  releaseDate: string | null;
+  ageRating: "all_ages" | "restricted" | "unknown";
+  publishers: string[];
+  publisherIds: string[];
+  releases: Array<{
+    released: string | null;
+    platforms: string[];
+    minage: number | null;
+    hasEro: boolean;
   }>;
 }
 
@@ -172,6 +198,25 @@ export class VndbClient {
       "searchrank",
       false,
     );
+  }
+
+  async getVisualNovelsByIds(
+    sourceIds: string[],
+  ): Promise<PagedResult<SourceVisualNovel>> {
+    const ids = [
+      ...new Set(
+        sourceIds
+          .map((sourceId) => sourceId.trim())
+          .filter((sourceId) => /^v\d+$/.test(sourceId)),
+      ),
+    ].slice(0, 100);
+    if (ids.length === 0)
+      return { items: [], hasMore: false, nextCursor: null };
+    const filters =
+      ids.length === 1
+        ? ["id", "=", ids[0]]
+        : ["or", ...ids.map((id) => ["id", "=", id])];
+    return this.queryVisualNovels(filters, 1, ids.length, "id", false);
   }
 
   async listVisualNovelsByDeveloper(
@@ -237,14 +282,14 @@ export class VndbClient {
     );
 
     const visualNovelIds = response.results.map((item) => item.id);
-    const ageRatings = await this.loadAgeRatings(visualNovelIds);
+    const releaseEvidence = await this.loadReleaseEvidence(visualNovelIds);
     const animeAdaptations = await this.loadAnimeAdaptations(visualNovelIds);
     const heroineHair = await this.loadHeroineHairColors(visualNovelIds);
     return {
       items: response.results.map((item) =>
         this.normalize(
           item,
-          ageRatings.get(item.id) ?? "unknown",
+          releaseEvidence.get(item.id),
           animeAdaptations.has(item.id) ? "has_adaptation" : "none",
           heroineHair.get(item.id),
         ),
@@ -374,16 +419,30 @@ export class VndbClient {
     return new Set(response.results.map((item) => item.id));
   }
 
-  private async loadAgeRatings(
+  private async loadReleaseEvidence(
     visualNovelIds: string[],
-  ): Promise<Map<string, "all_ages" | "restricted" | "unknown">> {
+  ): Promise<Map<string, ReleaseEvidence>> {
     const states = new Map<
       string,
-      { hasAllAgesRelease: boolean; restricted: boolean }
+      {
+        hasAdultContent: boolean;
+        hasNonAdultRating: boolean;
+        hasAdultRating: boolean;
+        releaseDates: string[];
+        publishers: Map<string, string>;
+        releases: ReleaseEvidence["releases"];
+      }
     >(
       visualNovelIds.map((id) => [
         id,
-        { hasAllAgesRelease: false, restricted: false },
+        {
+          hasAdultContent: false,
+          hasNonAdultRating: false,
+          hasAdultRating: false,
+          releaseDates: [],
+          publishers: new Map(),
+          releases: [],
+        },
       ]),
     );
     if (visualNovelIds.length === 0) return new Map();
@@ -401,7 +460,8 @@ export class VndbClient {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             filters: ["vn", "=", vnFilter],
-            fields: "minage,has_ero,official,vns{id}",
+            fields:
+              "released,minage,has_ero,official,platforms,vns{id,rtype},producers{id,name,developer,publisher}",
             results: 100,
             page,
           }),
@@ -409,37 +469,58 @@ export class VndbClient {
       );
       for (const release of response.results) {
         if (!release.official) continue;
-        for (const vn of release.vns) {
+        for (const vn of release.vns ?? []) {
+          if (vn.rtype !== "complete") continue;
           const state = states.get(vn.id);
           if (!state) continue;
-          if (
-            release.has_ero ||
-            (release.minage != null && release.minage > 0)
-          ) {
-            state.restricted = true;
-          } else if (release.minage === 0) {
-            state.hasAllAgesRelease = true;
+          if (release.released?.match(/^\d{4}/)) {
+            state.releaseDates.push(release.released);
           }
+          state.hasAdultContent ||= release.has_ero;
+          state.hasNonAdultRating ||=
+            !release.has_ero && release.minage != null && release.minage <= 15;
+          state.hasAdultRating ||= (release.minage ?? 0) >= 18;
+          for (const producer of release.producers ?? []) {
+            if (producer.publisher)
+              state.publishers.set(producer.id, producer.name);
+          }
+          state.releases.push({
+            released: release.released,
+            platforms: release.platforms ?? [],
+            minage: release.minage,
+            hasEro: release.has_ero,
+          });
         }
       }
       if (!response.more) break;
     }
 
     return new Map(
-      [...states].map(([id, state]) => [
-        id,
-        state.restricted
-          ? "restricted"
-          : state.hasAllAgesRelease
-            ? "all_ages"
-            : "unknown",
-      ]),
+      [...states].map(([id, state]) => {
+        const publishers = [...state.publishers];
+        return [
+          id,
+          {
+            releaseDate: state.releaseDates.sort()[0] ?? null,
+            ageRating: state.hasAdultContent
+              ? "restricted"
+              : state.hasNonAdultRating
+                ? "all_ages"
+                : state.hasAdultRating
+                  ? "restricted"
+                  : "unknown",
+            publishers: publishers.map(([, name]) => name),
+            publisherIds: publishers.map(([producerId]) => producerId),
+            releases: state.releases,
+          },
+        ];
+      }),
     );
   }
 
   private normalize(
     item: VndbVisualNovel,
-    ageRating: "all_ages" | "restricted" | "unknown",
+    releaseEvidence: ReleaseEvidence | undefined,
     animeAdaptation: "none" | "has_adaptation",
     heroineHair?: HeroineHairEvidence,
   ): SourceVisualNovel {
@@ -458,8 +539,11 @@ export class VndbClient {
       sourceId: item.id,
       title: item.title,
       alternativeTitles,
-      releaseDate: item.released,
+      releaseDate: releaseEvidence?.releaseDate ?? null,
       developers: item.developers.map((developer) => developer.name),
+      developerIds: item.developers.map((developer) => developer.id),
+      publishers: releaseEvidence?.publishers ?? [],
+      publisherIds: releaseEvidence?.publisherIds ?? [],
       scenarioWriters: item.staff
         .filter((staff) => staff.role === "scenario")
         .map((staff) => staff.name),
@@ -474,7 +558,16 @@ export class VndbClient {
       popularity: item.popularity,
       heroineHairColors: heroineHair?.colors ?? [],
       animeAdaptation,
-      ageRating,
+      ageRating: releaseEvidence?.ageRating ?? "unknown",
+      seriesIds: [
+        item.id,
+        ...(item.relations ?? [])
+          .filter(
+            (relation) =>
+              relation.relation_official && relation.relation !== "char",
+          )
+          .map((relation) => relation.id),
+      ],
       tags: item.tags.map((tag) => ({
         id: tag.id,
         name: tag.name,
@@ -484,6 +577,7 @@ export class VndbClient {
       })),
       raw: {
         visualNovel: item,
+        formalReleaseEvidence: releaseEvidence?.releases ?? [],
         heroineHairEvidence: heroineHair?.characters ?? [],
       },
       fetchedAt: new Date().toISOString(),

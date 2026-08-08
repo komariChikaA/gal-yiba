@@ -24,6 +24,14 @@ interface BangumiSearchResponse {
   offset: number;
 }
 
+interface BangumiRelatedSubject {
+  id: number;
+  type: number;
+  name: string;
+  name_cn: string;
+  relation: string;
+}
+
 export interface BangumiClientOptions {
   userAgent: string;
   accessToken?: string;
@@ -71,14 +79,77 @@ export class BangumiClient {
     );
 
     const nextOffset = response.offset + response.data.length;
+    const items: SourceVisualNovel[] = [];
+    for (const item of response.data) {
+      items.push(this.normalize(item, await this.loadAnimeAdaptation(item.id)));
+    }
     return {
-      items: response.data.map((item) => this.normalize(item)),
+      items,
       hasMore: nextOffset < response.total,
       nextCursor: nextOffset < response.total ? String(nextOffset) : null,
     };
   }
 
-  private normalize(item: BangumiSubject): SourceVisualNovel {
+  async getGamesByIds(
+    sourceIds: string[],
+  ): Promise<PagedResult<SourceVisualNovel>> {
+    const ids = [
+      ...new Set(
+        sourceIds
+          .map((sourceId) => Number(sourceId))
+          .filter((sourceId) => Number.isSafeInteger(sourceId) && sourceId > 0),
+      ),
+    ];
+    const items: SourceVisualNovel[] = [];
+    for (const subjectId of ids) {
+      const item = await requestJson<BangumiSubject>(
+        this.fetcher,
+        `${this.baseUrl}/v0/subjects/${subjectId}`,
+        { headers: this.headers },
+      );
+      items.push(
+        this.normalize(item, await this.loadAnimeAdaptation(subjectId)),
+      );
+    }
+    return { items, hasMore: false, nextCursor: null };
+  }
+
+  private async loadAnimeAdaptation(
+    subjectId: number,
+  ): Promise<"none" | "announced" | "has_adaptation" | "unknown"> {
+    const relations = await requestJson<BangumiRelatedSubject[]>(
+      this.fetcher,
+      `${this.baseUrl}/v0/subjects/${subjectId}/subjects`,
+      { headers: this.headers },
+    );
+    const animeRelations = relations.filter((relation) => relation.type === 2);
+    if (animeRelations.length === 0) return "none";
+
+    let hasFutureDate = false;
+    let hasKnownDate = false;
+    const today = new Date().toISOString().slice(0, 10);
+    for (const relation of animeRelations) {
+      const subject = await requestJson<BangumiSubject>(
+        this.fetcher,
+        `${this.baseUrl}/v0/subjects/${relation.id}`,
+        { headers: this.headers },
+      );
+      if (!subject.date?.match(/^\d{4}/)) continue;
+      hasKnownDate = true;
+      if (subject.date <= today) return "has_adaptation";
+      hasFutureDate = true;
+    }
+    return hasFutureDate
+      ? "announced"
+      : hasKnownDate
+        ? "has_adaptation"
+        : "unknown";
+  }
+
+  private normalize(
+    item: BangumiSubject,
+    animeAdaptation: "none" | "announced" | "has_adaptation" | "unknown",
+  ): SourceVisualNovel {
     return {
       source: "bangumi",
       sourceId: String(item.id),
@@ -95,6 +166,7 @@ export class BangumiClient {
       rating: item.rating?.score ?? null,
       voteCount: item.rating?.total ?? null,
       popularity: null,
+      animeAdaptation,
       ageRating: item.nsfw ? "restricted" : "unknown",
       tags: item.tags.map((tag) => ({ name: tag.name, score: tag.count })),
       raw: item,

@@ -10,6 +10,8 @@
     "start": "node dist/index.js",
     "sync:vndb": "tsx src/cli/sync-catalog.ts vndb",
     "sync:bangumi": "tsx src/cli/sync-catalog.ts bangumi",
+    "refresh:vndb": "tsx src/cli/refresh-catalog.ts vndb",
+    "refresh:bangumi": "tsx src/cli/refresh-catalog.ts bangumi",
     "mappings:list": "tsx src/cli/review-mappings.ts list",
     "mappings:rebuild": "tsx src/cli/review-mappings.ts rebuild",
     "mappings:approve": "tsx src/cli/review-mappings.ts approve",

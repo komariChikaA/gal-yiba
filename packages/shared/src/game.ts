@@ -1,4 +1,4 @@
-import { compareGuess } from "./comparison.js";
+import { compareGuess, compareTitle } from "./comparison.js";
 import { selectImportantTags } from "./catalog.js";
 import type { ComparisonResult, GameRules, VisualNovel } from "./domain.js";
 
@@ -6,6 +6,7 @@ export interface GuessRecord {
   guessNumber: number;
   visualNovelId: string;
   title: string;
+  titleStatus: "exact" | "partial" | "miss";
   comparison: ComparisonResult[];
   isCorrect: boolean;
   guessedAt: string;
@@ -159,6 +160,7 @@ export function submitGuess(
     guessNumber: session.guesses.length + 1,
     visualNovelId: preparedGuess.id,
     title: preparedGuess.title,
+    titleStatus: compareTitle(preparedGuess, session.answer),
     comparison: compareGuess(
       preparedGuess,
       session.answer,

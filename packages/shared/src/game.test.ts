@@ -156,6 +156,7 @@ describe("game session", () => {
       "releaseYear",
       "tags",
     ]);
+    expect(first.guess.titleStatus).toBe("miss");
     expect(
       submitGuess(
         first.game,
@@ -163,6 +164,21 @@ describe("game session", () => {
         new Date("2026-08-08T00:00:20.000Z"),
       ),
     ).toMatchObject({ ok: false, error: "DUPLICATE_GUESS" });
+  });
+
+  it("marks a wrong title yellow when it belongs to the answer series", () => {
+    const session = createGameSession(
+      [visualNovel("answer", { seriesIds: ["vndb:v1", "vndb:v2"] })],
+      rules,
+      { random: () => 0 },
+    );
+    const outcome = submitGuess(
+      session,
+      visualNovel("related", { seriesIds: ["vndb:v2", "vndb:v3"] }),
+    );
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.guess.titleStatus).toBe("partial");
   });
 
   it("reveals the answer after a win", () => {

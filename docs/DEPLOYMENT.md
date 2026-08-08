@@ -67,6 +67,13 @@ docker compose exec app node apps/server/dist/cli/review-mappings.js reject --so
 
 只有 `verified` 映射会把 Bangumi 评分、票数和标签合入可玩作品；`suggested` 候选不会参与比较结果。
 
+规则或字段转换升级后，可只刷新数据库中已存在的 VNDB 记录及已验证的 Bangumi 映射，不扩张题库：
+
+```bash
+pnpm refresh:vndb
+pnpm refresh:bangumi
+```
+
 ## 反向代理
 
 Nginx、Caddy 或面板代理必须同时支持 HTTP 和 WebSocket，并将 `/socket.io/` 原样转发到应用的 3000 端口。TLS 应在反向代理层终止。

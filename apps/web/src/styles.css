@@ -373,6 +373,27 @@ button {
 .comparison-grid button:disabled {
   cursor: default;
 }
+.comparison-notes {
+  margin-top: 16px;
+  border-top: 1px solid #bdb2a5;
+  padding-top: 12px;
+  color: #665d55;
+}
+.comparison-notes summary {
+  cursor: pointer;
+  color: #8a3c24;
+  font-size: 11px;
+  font-weight: 700;
+}
+.comparison-notes ul {
+  margin: 11px 0 0;
+  padding-left: 18px;
+}
+.comparison-notes li {
+  margin: 7px 0;
+  font-size: 10px;
+  line-height: 1.55;
+}
 
 .pool-builder {
   margin-top: 28px;
@@ -677,7 +698,16 @@ button {
 .guess-history article header {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 12px;
+  margin-bottom: 6px;
+  padding: 8px 10px;
+  background: #c9c0b6;
+}
+.guess-history article header.title-partial {
+  background: #e2bd55;
+}
+.guess-history article header.title-exact {
+  background: #78c99a;
 }
 .guess-history article header span {
   color: #746a61;
