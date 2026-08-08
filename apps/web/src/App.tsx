@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { MusicPlayer } from "./MusicPlayer";
 import {
@@ -277,8 +277,8 @@ export function App() {
   );
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState("");
-  const [chatOpen, setChatOpen] = useState(false);
-  const [game, setGame] = useState<PublicGameSession | null>(null);
+  const [chatOpen, setChatOpen] = useState(true);
+  const chatListRef = useRef<HTMLDivElement | null>(null);
   const [daily, setDaily] = useState<DailyGame | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchItems, setSearchItems] = useState<SearchItem[]>([]);
@@ -529,6 +529,7 @@ export function App() {
     socket.on("disconnect", onDisconnect);
     socket.on("room:updated", onRoomUpdated);
     socket.on("game:state", onGameState);
+
     socket.on("room:chat", (message: ChatMessage) =>
       setChatMessages((current) => [...current, message].slice(-100)),
     );
@@ -540,6 +541,11 @@ export function App() {
       socket.off("game:state", onGameState);
     };
   }, []);
+
+  useEffect(() => {
+    const list = chatListRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [chatMessages, chatOpen]);
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
@@ -1966,7 +1972,7 @@ export function App() {
           </button>
           {chatOpen && (
             <div className="chat-panel" aria-label="房间对话">
-              <div className="chat-messages">
+              <div className="chat-messages" ref={chatListRef}>
                 {chatMessages.length === 0 ? (
                   <p className="chat-empty">房间内还没有消息</p>
                 ) : (

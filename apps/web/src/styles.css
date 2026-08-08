@@ -2115,24 +2115,6 @@ footer b {
   letter-spacing: 0.06em;
 }
 
-/* ============ 视觉小说风背景层（动画） ============ */
-.app-shell > header,
-.app-shell > main,
-.app-shell > footer {
-  position: relative;
-  z-index: 1;
-}
-
-.app-shell::before,
-.app-shell::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-}
-
-/* 日间：柔和云层缓慢漂移 + 漂浮光点 */
 .app-shell::before {
   background-image:
     radial-gradient(
@@ -2642,4 +2624,25 @@ button {
   color: var(--muted);
   font-size: 10px;
   letter-spacing: 0.1em;
+}
+.duel-progress .duel-lights i {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  background: transparent;
+}
+.duel-progress .duel-lights i.exact {
+  border-color: var(--success);
+  background: var(--success);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--success) 65%, transparent);
+}
+.duel-progress .duel-lights i.partial {
+  border-color: var(--warning);
+  background: var(--warning);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--warning) 65%, transparent);
+}
+.duel-progress .duel-lights i.miss {
+  border-color: color-mix(in srgb, var(--danger) 75%, var(--muted));
+  background: color-mix(in srgb, var(--danger) 55%, var(--muted));
 }
