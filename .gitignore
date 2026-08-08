@@ -15,7 +15,4 @@ coverage/
 .codex-askpass/
 .codex-askpass-bin/
 deploy.sh
-apps/web/public/music/*.mp3
-apps/web/public/music/*.ogg
-apps/web/public/music/*.m4a
-apps/web/public/music/*.wav
+apps/web/public/music/README.txt
