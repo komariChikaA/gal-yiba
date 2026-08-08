@@ -25,6 +25,7 @@ import { RoomRegistry, defaultRules } from "./rooms.js";
 import { DailyRegistry } from "./services/daily.js";
 import { MatchRecorder } from "./services/match-recorder.js";
 import { searchCatalog } from "./services/catalog-search.js";
+import { CatalogSyncService } from "./services/catalog-sync.js";
 
 const port = Number(process.env.PORT ?? 3000);
 const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
@@ -285,6 +286,71 @@ app.get("/api/leaderboard", async (request, response, next) => {
       mode ? { mode, limit } : { limit },
     );
     response.json({ items });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+const adminToken = process.env.ADMIN_TOKEN ?? "";
+const adminEnabled = adminToken.length > 0;
+
+function requireAdmin(
+  request: express.Request,
+  response: express.Response,
+  next: express.NextFunction,
+): void {
+  if (!adminEnabled) return next(new Error("ADMIN_DISABLED"));
+  if (request.header("authorization") !== `Bearer ${adminToken}`) {
+    return next(new Error("ADMIN_UNAUTHORIZED"));
+  }
+  next();
+}
+
+app.use("/api/admin", requireAdmin);
+
+app.get("/api/admin/mappings", async (request, response, next) => {
+  try {
+    if (!catalogRepository) throw new Error("DATABASE_UNAVAILABLE");
+    const limit = Math.min(
+      100,
+      Math.max(1, Number(request.query.limit ?? 100) || 100),
+    );
+    const suggestions = await catalogRepository.listMappingSuggestions(limit);
+    response.json({ suggestions });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post("/api/admin/mappings/rebuild", async (_request, response, next) => {
+  try {
+    if (!databasePool || !catalogRepository)
+      throw new Error("DATABASE_UNAVAILABLE");
+    const summary = await new CatalogSyncService(
+      databasePool,
+    ).rebuildBangumiSuggestions(5_000);
+    response.json(summary);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post("/api/admin/mappings/decision", async (request, response, next) => {
+  try {
+    if (!catalogRepository) throw new Error("DATABASE_UNAVAILABLE");
+    const input = z
+      .object({
+        source: z.enum(["vndb", "bangumi"]),
+        sourceId: z.string().trim().min(1).max(120),
+        decision: z.enum(["approved", "rejected"]),
+      })
+      .parse(request.body);
+    await catalogRepository.reviewMappingSuggestion(
+      input.source,
+      input.sourceId,
+      input.decision === "approved" ? "verified" : "rejected",
+    );
+    response.json({ ok: true });
   } catch (error) {
     return next(error);
   }

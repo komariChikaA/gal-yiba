@@ -1826,3 +1826,92 @@ footer b {
   color: var(--muted);
   font-size: 11px;
 }
+
+.admin-panel {
+  width: min(560px, calc(100vw - 32px));
+}
+.admin-token-gate {
+  display: grid;
+  gap: 10px;
+  padding: 8px 0 4px;
+}
+.admin-token-gate label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-token-gate input {
+  font-size: 14px;
+}
+.admin-error {
+  color: var(--coral-strong);
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+.admin-suggestion-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.admin-suggestion-list li {
+  border: 2px solid var(--line);
+  border-radius: 13px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--surface-solid) 60%, var(--mint-soft));
+}
+.admin-titles {
+  display: grid;
+  gap: 2px;
+}
+.admin-titles b {
+  color: var(--ink);
+}
+.admin-titles small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-titles i {
+  color: var(--coral-strong);
+  font-size: 11px;
+  font-style: normal;
+}
+.admin-evidence {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 8px 0;
+  line-height: 1.5;
+}
+.admin-actions {
+  display: flex;
+  gap: 8px;
+}
+.admin-actions button {
+  border-color: var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 6px 14px;
+}
+.admin-actions button:first-child {
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--coral-strong), var(--mint-strong));
+}
+.admin-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+.admin-toolbar button {
+  border-color: var(--line-strong);
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 7px 12px;
+}
+.admin-rebuild-note {
+  color: var(--muted);
+  font-size: 11px;
+}

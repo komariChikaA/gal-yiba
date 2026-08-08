@@ -193,6 +193,23 @@ interface LeaderboardEntry {
   matches: number;
 }
 
+interface MappingSuggestion {
+  canonicalId: string;
+  canonicalTitle: string;
+  source: "vndb" | "bangumi";
+  sourceId: string;
+  sourceTitle: string;
+  confidence: number;
+  evidence: Record<string, unknown>;
+}
+
+interface MappingRebuildSummary {
+  recordsSeen: number;
+  suggestionsWritten: number;
+}
+
+const ADMIN_TOKEN_KEY = "gal-yiba-admin-token";
+
 const PLAYER_ID_KEY = "gal-yiba-player-id";
 
 function loadPlayerId(): string {
@@ -252,6 +269,18 @@ export function App() {
     "all" | GameMode
   >("all");
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(
+    null,
+  );
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [adminToken, setAdminToken] = useState(() =>
+    sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? "",
+  );
+  const [adminSuggestions, setAdminSuggestions] = useState<
+    MappingSuggestion[] | null
+  >(null);
+  const [adminError, setAdminError] = useState("");
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [adminRebuild, setAdminRebuild] = useState<MappingRebuildSummary | null>(
     null,
   );
   const [error, setError] = useState("");
@@ -341,6 +370,115 @@ export function App() {
       .catch(() => setLeaderboard([]));
     return () => controller.abort();
   }, [showLeaderboard, leaderboardMode]);
+
+  async function adminLoad() {
+    if (!adminToken) return;
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      const response = await fetch("/api/admin/mappings", {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const body = (await response.json()) as {
+        suggestions?: MappingSuggestion[];
+        error?: string;
+      };
+      if (!response.ok) {
+        setAdminError(body.error ?? "ADMIN_LOAD_FAILED");
+        setAdminSuggestions(null);
+        return;
+      }
+      setAdminSuggestions(body.suggestions ?? []);
+    } catch {
+      setAdminError("管理接口加载失败");
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  function openAdmin() {
+    setShowAdmin(true);
+    setAdminError("");
+    setAdminRebuild(null);
+    if (adminToken) void adminLoad();
+  }
+
+  async function adminDecide(
+    suggestion: MappingSuggestion,
+    decision: "approved" | "rejected",
+  ) {
+    setAdminBusy(true);
+    try {
+      const response = await fetch("/api/admin/mappings/decision", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          source: suggestion.source,
+          sourceId: suggestion.sourceId,
+          decision,
+        }),
+      });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setAdminError(body.error ?? "DECISION_FAILED");
+        return;
+      }
+      setAdminSuggestions(
+        (current) =>
+          current?.filter(
+            (item) =>
+              !(
+                item.source === suggestion.source &&
+                item.sourceId === suggestion.sourceId
+              ),
+          ) ?? null,
+      );
+    } catch {
+      setAdminError("操作失败");
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  async function adminRebuildSuggestions() {
+    setAdminBusy(true);
+    setAdminError("");
+    try {
+      const response = await fetch("/api/admin/mappings/rebuild", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const body = (await response.json()) as {
+        recordsSeen?: number;
+        suggestionsWritten?: number;
+        error?: string;
+      };
+      if (!response.ok) {
+        setAdminError(body.error ?? "REBUILD_FAILED");
+        return;
+      }
+      setAdminRebuild({
+        recordsSeen: body.recordsSeen ?? 0,
+        suggestionsWritten: body.suggestionsWritten ?? 0,
+      });
+      await adminLoad();
+    } catch {
+      setAdminError("重建失败");
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
+  function saveAdminToken() {
+    const trimmed = adminToken.trim();
+    if (!trimmed) return;
+    sessionStorage.setItem(ADMIN_TOKEN_KEY, trimmed);
+    setAdminToken(trimmed);
+    void adminLoad();
+  }
 
   useEffect(() => {
     if (room?.round && game) window.scrollTo({ top: 0, behavior: "instant" });
@@ -743,6 +881,13 @@ export function App() {
             onClick={() => setShowLeaderboard(true)}
           >
             排行榜
+          </button>
+          <button
+            className="nav-link"
+            type="button"
+            onClick={openAdmin}
+          >
+            管理
           </button>
           <button
             className="theme-toggle"
@@ -1540,6 +1685,120 @@ export function App() {
                   </li>
                 ))}
               </ol>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showAdmin && (
+        <div className="leaderboard-overlay" role="dialog" aria-label="映射审核">
+          <div className="leaderboard-panel admin-panel">
+            <header>
+              <h2>映射审核</h2>
+              <button
+                type="button"
+                className="panel-close"
+                onClick={() => setShowAdmin(false)}
+                aria-label="关闭管理面板"
+              >
+                ×
+              </button>
+            </header>
+
+            {!adminToken && (
+              <div className="admin-token-gate">
+                <label htmlFor="admin-token-input">管理员令牌</label>
+                <input
+                  id="admin-token-input"
+                  type="password"
+                  value={adminToken}
+                  onChange={(event) => setAdminToken(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") saveAdminToken();
+                  }}
+                  placeholder="ADMIN_TOKEN"
+                />
+                <button type="button" onClick={saveAdminToken}>
+                  解锁
+                </button>
+              </div>
+            )}
+
+            {adminToken && (
+              <>
+                {adminError && <p className="admin-error">{adminError}</p>}
+                {adminSuggestions === null ? (
+                  <p className="leaderboard-empty">
+                    {adminBusy ? "加载中……" : "尚未加载，点下方按钮拉取待审映射。"}
+                  </p>
+                ) : adminSuggestions.length === 0 ? (
+                  <p className="leaderboard-empty">没有待审核的映射建议。</p>
+                ) : (
+                  <ul className="admin-suggestion-list">
+                    {adminSuggestions.map((suggestion) => (
+                      <li key={`${suggestion.source}:${suggestion.sourceId}`}>
+                        <div className="admin-titles">
+                          <b>{suggestion.canonicalTitle}</b>
+                          <small>
+                            {suggestion.source === "bangumi" ? "Bangumi" : "VNDB"}{" "}
+                            · {suggestion.sourceTitle}
+                          </small>
+                          <i>
+                            置信度 {Math.round(suggestion.confidence * 100)}%
+                          </i>
+                        </div>
+                        <div className="admin-evidence">
+                          {Object.entries(suggestion.evidence)
+                            .map(
+                              ([key, value]) =>
+                                `${key}: ${JSON.stringify(value)}`,
+                            )
+                            .join(" · ")}
+                        </div>
+                        <div className="admin-actions">
+                          <button
+                            type="button"
+                            disabled={adminBusy}
+                            onClick={() => adminDecide(suggestion, "approved")}
+                          >
+                            通过
+                          </button>
+                          <button
+                            type="button"
+                            disabled={adminBusy}
+                            onClick={() => adminDecide(suggestion, "rejected")}
+                          >
+                            拒绝
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="admin-toolbar">
+                  <button
+                    type="button"
+                    disabled={adminBusy}
+                    onClick={() => void adminLoad()}
+                  >
+                    刷新待审
+                  </button>
+                  <button
+                    type="button"
+                    disabled={adminBusy}
+                    onClick={() => void adminRebuildSuggestions()}
+                  >
+                    重建 Bangumi 建议
+                  </button>
+                  {adminRebuild && (
+                    <span className="admin-rebuild-note">
+                      扫描 {adminRebuild.recordsSeen} 条，新增建议{" "}
+                      {adminRebuild.suggestionsWritten} 条
+                    </span>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>
