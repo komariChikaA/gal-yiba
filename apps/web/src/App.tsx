@@ -218,7 +218,7 @@ export function App() {
       colorTheme === "night" ? "dark" : "light";
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", colorTheme === "night" ? "#45445f" : "#fff7fc");
+      ?.setAttribute("content", colorTheme === "night" ? "#625044" : "#fff7e8");
   }, [colorTheme]);
 
   useEffect(() => {
