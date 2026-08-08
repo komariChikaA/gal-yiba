@@ -7,27 +7,50 @@ import type {
   VisualNovel,
 } from "./domain.js";
 
-export const fameTierThresholds = {
-  novice: { vndbVoteCount: 1000, bangumiVoteCount: 3000 },
-  standard: { vndbVoteCount: 250, bangumiVoteCount: 300 },
-} as const;
+/** 各知名度的题池规模（按分数榜排名，累积 Top-N）。 */
+export const fameTierPoolSizes: Record<FameTier, number> = {
+  novice: 150,
+  standard: 300,
+  veteran: 690,
+  master: 1028,
+};
 
-export function fameTierForVisualNovel(visualNovel: VisualNovel): FameTier {
-  const vndbVotes = visualNovel.vndbVoteCount ?? 0;
-  const bangumiVotes = visualNovel.bangumiVoteCount ?? 0;
-  if (
-    vndbVotes >= fameTierThresholds.novice.vndbVoteCount ||
-    bangumiVotes >= fameTierThresholds.novice.bangumiVoteCount
-  ) {
-    return "novice";
-  }
-  if (
-    vndbVotes >= fameTierThresholds.standard.vndbVoteCount ||
-    bangumiVotes >= fameTierThresholds.standard.bangumiVoteCount
-  ) {
-    return "standard";
-  }
-  return "veteran";
+/** 综合分：评分优先（×10⁹），票数只做同分排序。 */
+export function visualNovelScore(visualNovel: VisualNovel): number {
+  const rating = visualNovel.vndbRating ?? visualNovel.bangumiRating ?? 0;
+  const votes =
+    (visualNovel.vndbVoteCount ?? 0) + (visualNovel.bangumiVoteCount ?? 0);
+  return Math.round(rating * 1_000_000_000) + votes;
+}
+
+let rankingCache: {
+  catalog: VisualNovel[];
+  rankById: Map<string, number>;
+} | null = null;
+
+/** 按综合分从高到低排序目录，返回每个作品的排名（0 起）。 */
+export function catalogRanking(catalog: VisualNovel[]): Map<string, number> {
+  if (rankingCache && rankingCache.catalog === catalog)
+    return rankingCache.rankById;
+  const sorted = [...catalog].sort(
+    (left, right) =>
+      visualNovelScore(right) - visualNovelScore(left) ||
+      left.title.localeCompare(right.title),
+  );
+  const rankById = new Map<string, number>();
+  sorted.forEach((visualNovel, index) => rankById.set(visualNovel.id, index));
+  rankingCache = { catalog, rankById };
+  return rankById;
+}
+
+/** 作品是否落在某档题池内（排名小于该档规模）。 */
+export function fameTierPoolIncludes(
+  catalog: VisualNovel[],
+  visualNovel: VisualNovel,
+  tier: FameTier,
+): boolean {
+  const rank = catalogRanking(catalog).get(visualNovel.id);
+  return rank !== undefined && rank < fameTierPoolSizes[tier];
 }
 
 export interface GuessRecord {
@@ -141,7 +164,7 @@ export function filterAnswerPool(
       if (region === "china" && !rules.pool.includeChina) return false;
       if (region === "west" && !rules.pool.includeWest) return false;
       return (
-        fameTierForVisualNovel(visualNovel) === rules.pool.fameTier &&
+        fameTierPoolIncludes(catalog, visualNovel, rules.pool.fameTier) &&
         (!rules.pool.allAgesOnly || visualNovel.ageRating === "all_ages")
       );
     })

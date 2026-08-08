@@ -9,10 +9,11 @@ import { z } from "zod";
 import { normalizeTitle } from "@gal-yiba/data";
 import {
   comparisonKeys,
-  fameTierForVisualNovel,
-  fameTierThresholds,
+  fameTierPoolIncludes,
+  fameTierPoolSizes,
   publicGameSession,
   selectImportantTags,
+  type FameTier,
   type GameMode,
   type GameRules,
 } from "@gal-yiba/shared";
@@ -66,7 +67,7 @@ const joinSchema = z.object({
 const createRoomSchema = z.object({
   nickname: nicknameSchema,
   mode: z.enum(["solo", "duel", "race"]),
-  fameTier: z.enum(["novice", "standard", "veteran"]),
+  fameTier: z.enum(["novice", "standard", "veteran", "master"]),
   playerId: playerIdSchema,
 });
 const reconnectSchema = z.object({
@@ -91,7 +92,7 @@ const gameRulesSchema = z.object({
     includeChina: z.boolean(),
     includeWest: z.boolean(),
     maxTagSpoilerLevel: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-    fameTier: z.enum(["novice", "standard", "veteran"]),
+    fameTier: z.enum(["novice", "standard", "veteran", "master"]),
   }),
 });
 
@@ -203,15 +204,19 @@ app.get("/api/catalog/tags", async (request, response, next) => {
     const parsedSpoilerLevel = Number(request.query.maxSpoilerLevel ?? 0);
     const allAgesOnly = String(request.query.allAgesOnly ?? "false") === "true";
     const fameTier = z
-      .enum(["novice", "standard", "veteran"])
+      .enum(["novice", "standard", "veteran", "master"])
       .optional()
       .parse(request.query.fameTier);
     const maxSpoilerLevel = (
       [0, 1, 2].includes(parsedSpoilerLevel) ? parsedSpoilerLevel : 0
     ) as 0 | 1 | 2;
+    const catalog = await loadCatalog();
     const counts = new Map<string, number>();
-    for (const visualNovel of await loadCatalog()) {
-      if (fameTier && fameTierForVisualNovel(visualNovel) !== fameTier)
+    for (const visualNovel of catalog) {
+      if (
+        fameTier &&
+        !fameTierPoolIncludes(catalog, visualNovel, fameTier)
+      )
         continue;
       if (allAgesOnly && visualNovel.ageRating !== "all_ages") continue;
       const tags = selectImportantTags(
@@ -219,8 +224,9 @@ app.get("/api/catalog/tags", async (request, response, next) => {
         visualNovel.tags,
         maxSpoilerLevel,
       ).map((tag) => tag.name);
-      for (const tag of new Set(tags))
+      for (const tag of new Set(tags)) {
         counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
     }
     const items = [...counts]
       .filter(([tag]) => !query || normalizeTitle(tag).includes(query))
@@ -237,11 +243,12 @@ app.get("/api/catalog/tags", async (request, response, next) => {
 
 app.get("/api/catalog/fame-tiers", async (_request, response, next) => {
   try {
-    const counts = { novice: 0, standard: 0, veteran: 0 };
-    for (const visualNovel of await loadCatalog()) {
-      counts[fameTierForVisualNovel(visualNovel)] += 1;
+    const catalog = await loadCatalog();
+    const counts = {} as Record<FameTier, number>;
+    for (const tier of Object.keys(fameTierPoolSizes) as FameTier[]) {
+      counts[tier] = Math.min(fameTierPoolSizes[tier], catalog.length);
     }
-    response.json({ counts, thresholds: fameTierThresholds });
+    response.json({ counts, sizes: fameTierPoolSizes });
   } catch (error) {
     next(error);
   }

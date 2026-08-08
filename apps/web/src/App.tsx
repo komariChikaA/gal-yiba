@@ -94,17 +94,22 @@ const fameOptions: Array<{
   {
     value: "novice",
     label: "萌新",
-    description: "高知名度：VNDB ≥ 1000 票或 Bangumi ≥ 3000 票",
+    description: "分数榜前 150 部",
   },
   {
     value: "standard",
-    label: "标准",
-    description: "中等知名度：VNDB ≥ 250 票或 Bangumi ≥ 300 票",
+    label: "入门",
+    description: "分数榜前 300 部",
   },
   {
     value: "veteran",
+    label: "标准",
+    description: "分数榜前 690 部",
+  },
+  {
+    value: "master",
     label: "老资历",
-    description: "偏冷门：低于标准档票数门槛",
+    description: "分数榜前 1028 部（标准 +338）",
   },
 ];
 

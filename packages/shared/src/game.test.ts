@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createDailyGameSession,
   createGameSession,
+  fameTierPoolSizes,
   filterAnswerPool,
   publicGameSession,
   submitGuess,
@@ -76,24 +77,43 @@ describe("filterAnswerPool", () => {
     ).toEqual(["valid"]);
   });
 
-  it("divides works into newcomer, standard and veteran pools by vote reach", () => {
+  it("builds cumulative top-N pools by score rank", () => {
     const catalog = [
-      visualNovel("novice", { vndbVoteCount: 1000, bangumiVoteCount: null }),
-      visualNovel("standard", { vndbVoteCount: 250, bangumiVoteCount: null }),
-      visualNovel("veteran", { vndbVoteCount: 249, bangumiVoteCount: 299 }),
-      visualNovel("bangumi-known", {
-        vndbVoteCount: 10,
-        bangumiVoteCount: 3000,
-      }),
+      visualNovel("top", { vndbRating: 9.0, vndbVoteCount: 500 }),
+      visualNovel("mid", { vndbRating: 8.0, vndbVoteCount: 500 }),
+      visualNovel("low", { vndbRating: 7.0, vndbVoteCount: 500 }),
     ];
     const idsFor = (fameTier: GameRules["pool"]["fameTier"]) =>
       filterAnswerPool(catalog, {
         ...rules,
         pool: { ...rules.pool, fameTier },
       }).map((item) => item.id);
-    expect(idsFor("novice")).toEqual(["novice", "bangumi-known"]);
-    expect(idsFor("standard")).toEqual(["standard"]);
-    expect(idsFor("veteran")).toEqual(["veteran"]);
+    // 目录小于 150 部时，每个档位都包含全部作品。
+    expect(idsFor("novice")).toEqual(["top", "mid", "low"]);
+    expect(idsFor("standard")).toEqual(["top", "mid", "low"]);
+    expect(idsFor("veteran")).toEqual(["top", "mid", "low"]);
+    expect(idsFor("master")).toEqual(["top", "mid", "low"]);
+  });
+
+  it("cuts each tier at its pool size by score", () => {
+    const catalog = Array.from({ length: 160 }, (_, index) =>
+      visualNovel(`v-${index}`, {
+        vndbRating: index < 150 ? 8 : 5,
+        vndbVoteCount: 100,
+      }),
+    );
+    const novice = filterAnswerPool(catalog, {
+      ...rules,
+      pool: { ...rules.pool, fameTier: "novice" },
+    });
+    expect(novice).toHaveLength(150);
+    const veteran = filterAnswerPool(catalog, {
+      ...rules,
+      pool: { ...rules.pool, fameTier: "veteran" },
+    });
+    expect(veteran).toHaveLength(160);
+    // 老资历档在前 150 名之外再容纳 338 部。
+    expect(fameTierPoolSizes.master).toBe(1028);
   });
 
   it("filters and compares tags at the configured spoiler level", () => {
@@ -270,12 +290,14 @@ describe("daily question session", () => {
   });
 
   it("only uses answers inside the filtered pool", () => {
-    const catalog = [
-      visualNovel("novice-a"),
-      visualNovel("veteran", { vndbVoteCount: 5, bangumiVoteCount: 5 }),
-    ];
+    const catalog = Array.from({ length: 160 }, (_, index) =>
+      visualNovel(`v-${index}`, {
+        vndbRating: index < 150 ? 8 : 5,
+        vndbVoteCount: 100,
+      }),
+    );
     const session = createDailyGameSession(catalog, rules, "2026-08-08");
-    expect(session.answer.id).toBe("novice-a");
+    expect(Number(session.answer.id.split("-")[1])).toBeLessThan(150);
   });
 
   it("rotates the answer across dates", () => {
