@@ -641,9 +641,19 @@ export function App() {
     }
     let stream: MediaStream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
     } catch {
       setError("无法访问麦克风（需要 HTTPS 与浏览器授权）");
+      return;
+    }
+    if (mediaRecorderRef.current) {
+      stream.getTracks().forEach((track) => track.stop());
       return;
     }
     let recorder: MediaRecorder;
@@ -674,7 +684,7 @@ export function App() {
         type: recorder.mimeType || "audio/webm",
       });
       if (blob.size < 1500) {
-        setError("录音太短或没有捕捉到声音，请检查麦克风后重试");
+        setError(`录音只有 ${blob.size} 字节，麦克风可能未工作，请检查后重试`);
         return;
       }
       sendAudioMessage(blob);
@@ -688,7 +698,7 @@ export function App() {
     mediaRecorderRef.current = recorder;
     setRecording(true);
     setRecordingSeconds(0);
-    recorder.start(250);
+    recorder.start();
     secondsTimerRef.current = window.setInterval(() => {
       setRecordingSeconds((current) => current + 1);
     }, 1000);
