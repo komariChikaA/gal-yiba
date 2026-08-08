@@ -1,0 +1,21 @@
+{
+  "name": "@gal-yiba/data",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "smoke:vndb": "pnpm build && node scripts/smoke-vndb.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0"
+  }
+}

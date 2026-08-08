@@ -1,0 +1,29 @@
+{
+  "name": "gal-yiba",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A configurable visual-novel guessing game with online rooms.",
+  "packageManager": "pnpm@9.15.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "db:migrate": "pnpm --filter @gal-yiba/server db:migrate",
+    "dev": "pnpm --parallel --filter @gal-yiba/server --filter @gal-yiba/web dev",
+    "sync:vndb": "pnpm --filter @gal-yiba/server sync:vndb",
+    "sync:bangumi": "pnpm --filter @gal-yiba/server sync:bangumi",
+    "mappings:list": "pnpm --filter @gal-yiba/server mappings:list",
+    "mappings:approve": "pnpm --filter @gal-yiba/server mappings:approve",
+    "mappings:reject": "pnpm --filter @gal-yiba/server mappings:reject",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm --filter @gal-yiba/shared build && pnpm --filter @gal-yiba/data build && pnpm -r typecheck",
+    "format": "prettier --write .",
+    "check": "pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

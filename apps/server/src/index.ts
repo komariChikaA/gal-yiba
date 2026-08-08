@@ -1,0 +1,328 @@
+import "dotenv/config";
+import { createServer } from "node:http";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import cors from "cors";
+import express from "express";
+import { Server } from "socket.io";
+import { z } from "zod";
+import { normalizeTitle } from "@gal-yiba/data";
+import { comparisonKeys, type GameRules } from "@gal-yiba/shared";
+import {
+  CatalogRepository,
+  createDatabasePool,
+  migrateDatabase,
+} from "./db/index.js";
+import { RoomRegistry, defaultRules } from "./rooms.js";
+import { searchCatalog } from "./services/catalog-search.js";
+
+const port = Number(process.env.PORT ?? 3000);
+const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
+const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: webOrigin, credentials: true },
+});
+const rooms = new RoomRegistry();
+const databasePool = process.env.DATABASE_URL ? createDatabasePool() : null;
+if (databasePool) await migrateDatabase(databasePool);
+const catalogRepository = databasePool
+  ? new CatalogRepository(databasePool)
+  : null;
+
+async function loadCatalog() {
+  return catalogRepository?.listVisualNovels() ?? [];
+}
+
+const nicknameSchema = z.string().trim().min(1).max(20);
+const joinSchema = z.object({
+  code: z.string().trim().length(5),
+  nickname: nicknameSchema,
+});
+const reconnectSchema = z.object({
+  code: z.string().trim().length(5),
+  reconnectToken: z.string().uuid(),
+});
+const gameRulesSchema = z.object({
+  version: z.literal(1),
+  mode: z.enum(["solo", "daily", "race"]),
+  maxGuesses: z.number().int().min(1).max(20),
+  roundTimeSeconds: z.number().int().min(30).max(600),
+  bestOf: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(7)]),
+  comparisonKeys: z
+    .array(z.enum(comparisonKeys))
+    .min(3)
+    .max(comparisonKeys.length),
+  pool: z.object({
+    includeTags: z.array(z.string().trim().min(1).max(80)).max(50),
+    excludeTags: z.array(z.string().trim().min(1).max(80)).max(50),
+    tagMode: z.enum(["all", "any"]),
+    allAgesOnly: z.boolean(),
+    maxTagSpoilerLevel: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  }),
+});
+
+function bindSocketSession(
+  socket: { data: Record<string, unknown> },
+  roomCode: string,
+  playerId: string,
+): void {
+  socket.data.roomCode = roomCode;
+  socket.data.playerId = playerId;
+}
+
+function socketIdentity(socket: { data: Record<string, unknown> }): {
+  roomCode: string;
+  playerId: string;
+} {
+  if (
+    typeof socket.data.roomCode !== "string" ||
+    typeof socket.data.playerId !== "string"
+  ) {
+    throw new Error("SOCKET_SESSION_REQUIRED");
+  }
+  return { roomCode: socket.data.roomCode, playerId: socket.data.playerId };
+}
+
+async function broadcastRoomState(roomCode: string): Promise<void> {
+  const room = rooms.get(roomCode);
+  io.to(roomCode).emit("room:updated", room);
+  if (!room.round) return;
+  const sockets = await io.in(roomCode).fetchSockets();
+  for (const roomSocket of sockets) {
+    try {
+      const identity = socketIdentity(roomSocket);
+      roomSocket.emit(
+        "game:state",
+        rooms.getPlayerGame(roomCode, identity.playerId),
+      );
+    } catch {
+      // Ignore sockets that have not completed room authentication.
+    }
+  }
+}
+
+app.use(cors({ origin: webOrigin, credentials: true }));
+app.use(express.json());
+
+app.get("/api/health", (_request, response) => {
+  response.json({
+    ok: true,
+    service: "gal-yiba-server",
+    now: new Date().toISOString(),
+  });
+});
+
+app.get("/api/rules/options", (_request, response) => {
+  response.json({ comparisonKeys, defaults: defaultRules });
+});
+
+app.get("/api/catalog/search", async (request, response, next) => {
+  try {
+    const query = normalizeTitle(String(request.query.q ?? ""));
+    if (!query) return response.json({ items: [] });
+    const items = searchCatalog(await loadCatalog(), query);
+    return response.json({ items });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get("/api/catalog/tags", async (request, response, next) => {
+  try {
+    const query = normalizeTitle(String(request.query.q ?? ""));
+    const parsedSpoilerLevel = Number(request.query.maxSpoilerLevel ?? 0);
+    const allAgesOnly = String(request.query.allAgesOnly ?? "false") === "true";
+    const maxSpoilerLevel = (
+      [0, 1, 2].includes(parsedSpoilerLevel) ? parsedSpoilerLevel : 0
+    ) as 0 | 1 | 2;
+    const counts = new Map<string, number>();
+    for (const visualNovel of await loadCatalog()) {
+      if (allAgesOnly && visualNovel.ageRating !== "all_ages") continue;
+      const tags = visualNovel.tagDetails
+        ? visualNovel.tagDetails
+            .filter((tag) => tag.spoilerLevel <= maxSpoilerLevel)
+            .map((tag) => tag.name)
+        : (visualNovel.tags ?? []);
+      for (const tag of new Set(tags))
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    const items = [...counts]
+      .filter(([tag]) => !query || normalizeTitle(tag).includes(query))
+      .sort(
+        (left, right) => right[1] - left[1] || left[0].localeCompare(right[0]),
+      )
+      .slice(0, 60)
+      .map(([name, count]) => ({ name, count }));
+    return response.json({ items });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+if (process.env.NODE_ENV === "production") {
+  const webDist =
+    process.env.WEB_DIST_PATH ??
+    join(dirname(fileURLToPath(import.meta.url)), "../../web/dist");
+  app.use(express.static(webDist, { index: false, maxAge: "1h" }));
+  app.get(/^(?!\/api(?:\/|$)|\/socket\.io(?:\/|$)).*/, (_request, response) => {
+    response.sendFile(join(webDist, "index.html"));
+  });
+}
+
+io.on("connection", (socket) => {
+  socket.on("room:create", (payload: unknown, acknowledge) => {
+    try {
+      const nickname = nicknameSchema.parse(
+        (payload as { nickname?: unknown })?.nickname,
+      );
+      const result = rooms.create(nickname);
+      socket.join(result.room.code);
+      bindSocketSession(socket, result.room.code, result.session.playerId);
+      acknowledge({ ok: true, ...result });
+      io.to(result.room.code).emit("room:updated", result.room);
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on("room:join", (payload: unknown, acknowledge) => {
+    try {
+      const input = joinSchema.parse(payload);
+      const result = rooms.join(input.code, input.nickname);
+      socket.join(result.room.code);
+      bindSocketSession(socket, result.room.code, result.session.playerId);
+      acknowledge({ ok: true, ...result });
+      io.to(result.room.code).emit("room:updated", result.room);
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on("room:reconnect", async (payload: unknown, acknowledge) => {
+    try {
+      const input = reconnectSchema.parse(payload);
+      const result = rooms.reconnect(input.code, input.reconnectToken);
+      socket.join(result.room.code);
+      bindSocketSession(socket, result.room.code, result.session.playerId);
+      acknowledge({ ok: true, ...result });
+      await broadcastRoomState(result.room.code);
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on("room:set-rules", (payload: unknown, acknowledge) => {
+    try {
+      const identity = socketIdentity(socket);
+      const rules = gameRulesSchema.parse(
+        (payload as { rules?: unknown })?.rules,
+      ) as GameRules;
+      const room = rooms.updateRules(
+        identity.roomCode,
+        identity.playerId,
+        rules,
+      );
+      io.to(room.code).emit("room:updated", room);
+      acknowledge({ ok: true, room });
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on("room:set-ready", (payload: { ready: boolean }, acknowledge) => {
+    try {
+      const identity = socketIdentity(socket);
+      const room = rooms.setReady(
+        identity.roomCode,
+        identity.playerId,
+        Boolean(payload.ready),
+      );
+      io.to(room.code).emit("room:updated", room);
+      acknowledge({ ok: true, room });
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on("room:start", async (_payload: unknown, acknowledge) => {
+    try {
+      const identity = socketIdentity(socket);
+      const catalog = await loadCatalog();
+      if (catalog.length === 0) throw new Error("CATALOG_EMPTY");
+      const room = rooms.start(identity.roomCode, identity.playerId, catalog);
+      await broadcastRoomState(room.code);
+      acknowledge({
+        ok: true,
+        room,
+        game: rooms.getPlayerGame(room.code, identity.playerId),
+      });
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on(
+    "game:guess",
+    async (payload: { visualNovelId?: unknown }, acknowledge) => {
+      try {
+        const identity = socketIdentity(socket);
+        const visualNovelId = z.string().uuid().parse(payload.visualNovelId);
+        const catalog = await loadCatalog();
+        const result = rooms.submitPlayerGuess(
+          identity.roomCode,
+          identity.playerId,
+          visualNovelId,
+          catalog,
+        );
+        await broadcastRoomState(result.room.code);
+        acknowledge({ ok: true, ...result });
+      } catch (error) {
+        acknowledge({
+          ok: false,
+          error: error instanceof Error ? error.message : "INVALID_REQUEST",
+        });
+      }
+    },
+  );
+
+  socket.on("disconnect", () => {
+    try {
+      const identity = socketIdentity(socket);
+      const room = rooms.disconnect(identity.roomCode, identity.playerId);
+      if (room) io.to(room.code).emit("room:updated", room);
+    } catch {
+      // The socket may disconnect before it has joined a room.
+    }
+  });
+});
+
+httpServer.listen(port, () => {
+  console.log(`Gal Yi Ba server listening on http://localhost:${port}`);
+});
+
+async function shutdown(): Promise<void> {
+  await databasePool?.end();
+  httpServer.close();
+}
+
+process.once("SIGTERM", () => void shutdown());
+process.once("SIGINT", () => void shutdown());

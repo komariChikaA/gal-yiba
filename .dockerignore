@@ -1,0 +1,9 @@
+.git
+.playwright-cli
+.pnpm-store
+node_modules
+**/dist
+**/*.tsbuildinfo
+.env
+*.log
+

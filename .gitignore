@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*.local
+*.log
+*.tsbuildinfo
+.DS_Store
+.idea/
+.vscode/
+.pnpm-store/
+.playwright-cli/
+.codex-known-hosts
+.codex-ssh-askpass.cmd
+.codex-askpass/
+.codex-askpass-bin/
