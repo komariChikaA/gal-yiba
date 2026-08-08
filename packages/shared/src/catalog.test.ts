@@ -17,6 +17,7 @@ describe("normalizeComparisonPlatforms", () => {
         "ps5",
         "swi",
         "xone",
+        "vnd",
       ]),
     ).toEqual(["PC", "PlayStation", "Nintendo Switch", "Xbox"]);
   });

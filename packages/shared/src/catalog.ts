@@ -50,6 +50,7 @@ const platformPriority = new Map([
   ["Nintendo Wii", 4],
   ["Nintendo DS", 5],
 ]);
+const majorPlatforms = new Set(platformPriority.keys());
 
 function normalizeKey(value: string): string {
   return value.normalize("NFKC").trim().toLocaleLowerCase();
@@ -67,7 +68,9 @@ export function normalizeComparisonPlatforms(platforms: string[]): string[] {
   const primary = normalized.filter(
     (platform) => !secondaryPlatforms.has(platform),
   );
-  const selected = primary.length > 0 ? primary : normalized;
+  const major = primary.filter((platform) => majorPlatforms.has(platform));
+  const selected =
+    major.length > 0 ? major : primary.length > 0 ? primary : normalized;
   return selected
     .map((platform, index) => ({ platform, index }))
     .sort(

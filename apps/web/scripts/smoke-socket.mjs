@@ -98,12 +98,32 @@ try {
     if (!Array.isArray(heroineHairColors) || heroineHairColors.length === 0) {
       throw new Error("source-backed heroine hair colors are missing");
     }
+    const platforms = guessed.game.guesses[0]?.comparison.find(
+      (result) => result.key === "platforms",
+    )?.guessValue;
+    if (
+      !Array.isArray(platforms) ||
+      platforms.length > 4 ||
+      platforms.some((platform) => ["Android", "iOS", "Web"].includes(platform))
+    ) {
+      throw new Error(
+        "platform comparison is not using primary platform groups",
+      );
+    }
+    const tags = guessed.game.guesses[0]?.comparison.find(
+      (result) => result.key === "tags",
+    )?.guessValue;
+    if (!Array.isArray(tags) || tags.length > 3) {
+      throw new Error("tag comparison contains more than three important tags");
+    }
     gameResult = {
       gameStartOk: started.ok,
       answerHiddenAtStart: !started.game.answer,
       guessOk: guessed.ok,
       comparisonCount,
       heroineHairColors,
+      platforms,
+      tags,
     };
   }
 
