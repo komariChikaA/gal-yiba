@@ -289,9 +289,11 @@ export function App() {
   const [chatOpen, setChatOpen] = useState(true);
   const chatListRef = useRef<HTMLDivElement | null>(null);
   const [recording, setRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimerRef = useRef<number | null>(null);
   const chatAudioRef = useRef<HTMLAudioElement | null>(null);
+  const secondsTimerRef = useRef<number | null>(null);
   const [game, setGame] = useState<PublicGameSession | null>(null);
   const [daily, setDaily] = useState<DailyGame | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -662,20 +664,34 @@ export function App() {
         window.clearTimeout(recordingTimerRef.current);
         recordingTimerRef.current = null;
       }
+      if (secondsTimerRef.current !== null) {
+        window.clearInterval(secondsTimerRef.current);
+        secondsTimerRef.current = null;
+      }
       setRecording(false);
+      setRecordingSeconds(0);
       const blob = new Blob(chunks, {
         type: recorder.mimeType || "audio/webm",
       });
-      if (blob.size > 0) sendAudioMessage(blob);
+      if (blob.size < 1500) {
+        setError("录音太短或没有捕捉到声音，请检查麦克风后重试");
+        return;
+      }
+      sendAudioMessage(blob);
     };
     recorder.onerror = () => {
       stream.getTracks().forEach((track) => track.stop());
       setRecording(false);
+      setRecordingSeconds(0);
       setError("录音失败");
     };
     mediaRecorderRef.current = recorder;
     setRecording(true);
+    setRecordingSeconds(0);
     recorder.start(250);
+    secondsTimerRef.current = window.setInterval(() => {
+      setRecordingSeconds((current) => current + 1);
+    }, 1000);
     recordingTimerRef.current = window.setTimeout(() => {
       recorder.stop();
     }, 60_000);
@@ -2146,7 +2162,9 @@ export function App() {
                   value={chatText}
                   maxLength={200}
                   placeholder={
-                    recording ? "正在录音……" : "对房间内所有人说…"
+                    recording
+                      ? `正在录音 ${recordingSeconds}s…`
+                      : "对房间内所有人说…"
                   }
                   onChange={(event) => setChatText(event.target.value)}
                 />
