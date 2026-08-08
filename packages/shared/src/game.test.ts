@@ -237,6 +237,7 @@ describe("game session", () => {
     expect(publicGameSession(outcome.game).answer).toEqual({
       id: "answer",
       title: "作品 answer",
+      displayTitle: "作品 answer",
     });
   });
 

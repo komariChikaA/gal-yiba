@@ -77,6 +77,7 @@ export interface ChatMessage {
   playerId: string;
   nickname: string;
   text: string;
+  audioId: string | null;
   at: string;
 }
 
@@ -581,21 +582,25 @@ export class RoomRegistry {
     playerId: string,
     textInput: string,
     now = new Date(),
+    audioId: string | null = null,
   ): ChatMessage {
     const code = codeInput.trim().toUpperCase();
     const room = this.requireRoom(code);
     const player = room.players.get(playerId);
     if (!player) throw new Error("PLAYER_NOT_FOUND");
     const text = textInput.trim();
-    if (text.length === 0) throw new Error("CHAT_EMPTY");
+    if (text.length === 0 && !audioId) throw new Error("CHAT_EMPTY");
     if (text.length > 200) throw new Error("CHAT_TOO_LONG");
-    const last = [...room.chat].reverse().find((message) => message.playerId === playerId);
+    const last = [...room.chat]
+      .reverse()
+      .find((message) => message.playerId === playerId);
     if (last && now.getTime() - Date.parse(last.at) < 400)
       throw new Error("CHAT_TOO_FAST");
     const message: ChatMessage = {
       playerId,
       nickname: player.nickname,
       text,
+      audioId,
       at: now.toISOString(),
     };
     room.chat.push(message);

@@ -158,11 +158,11 @@ interface RoomSnapshot {
   intermissionDeadlineAt: string | null;
   revision: number;
 }
-
 interface GuessRecord {
   guessNumber: number;
   visualNovelId: string;
   title: string;
+  displayTitle: string;
   titleStatus: "exact" | "partial" | "miss";
   comparison: ComparisonResult[];
   isCorrect: boolean;
@@ -176,7 +176,7 @@ interface PublicGameSession {
   guesses: GuessRecord[];
   deadlineAt: string;
   attemptsLeft: number;
-  answer?: { id: string; title: string };
+  answer?: { id: string; title: string; displayTitle: string };
 }
 
 interface ChatMessage {
@@ -184,6 +184,7 @@ interface ChatMessage {
   nickname: string;
   text: string;
   at: string;
+  audioId: string | null;
 }
 
 interface DailyGame {
@@ -1600,7 +1601,6 @@ export function App() {
                     )}
                   </b>
                   <button
-                    type="button"
                     className={currentPlayer?.ready ? "ready" : ""}
                     onClick={toggleReady}
                   >
@@ -1666,7 +1666,8 @@ export function App() {
                         : "本轮答案"}
                   </span>
                   <strong>
-                    {activeGame.answer?.title ??
+                    {activeGame.answer?.displayTitle ??
+                      activeGame.answer?.title ??
                       room?.round?.answer?.title ??
                       "等待结算"}
                   </strong>
@@ -1747,7 +1748,7 @@ export function App() {
                       .map((guess) => (
                         <article key={guess.visualNovelId}>
                           <header className={`title-${guess.titleStatus}`}>
-                            <b>{guess.title}</b>
+                            <b>{guess.displayTitle ?? guess.title}</b>
                             <span>
                               {guess.titleStatus === "partial" && "同系列 · "}
                               {guess.titleStatus === "exact" && "答案 · "}第{" "}
@@ -1796,7 +1797,13 @@ export function App() {
                                   key={index}
                                   className={`comparison-card ${comparison.status}`}
                                 >
-                                  <small aria-hidden="true">　</small>
+                                  <small>
+                                    {room?.rules.comparisonKeys[index] !== undefined
+                                      ? comparisonLabels[
+                                          room.rules.comparisonKeys[index]!
+                                        ] ?? ""
+                                      : ""}
+                                  </small>
                                   <strong
                                     className="comparison-value"
                                     aria-hidden="true"

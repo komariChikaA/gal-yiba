@@ -57,6 +57,7 @@ export interface GuessRecord {
   guessNumber: number;
   visualNovelId: string;
   title: string;
+  displayTitle: string;
   titleStatus: "exact" | "partial" | "miss";
   comparison: ComparisonResult[];
   isCorrect: boolean;
@@ -83,7 +84,7 @@ export interface PublicGameSession {
   deadlineAt: string;
   finishedAt: string | null;
   attemptsLeft: number;
-  answer?: Pick<VisualNovel, "id" | "title">;
+  answer?: Pick<VisualNovel, "id" | "title"> & { displayTitle: string };
 }
 
 export type GuessOutcome =
@@ -130,6 +131,45 @@ export function visualNovelForRules(
     tags: importantTags.map((tag) => tag.name),
     tagDetails: importantTags,
   };
+}
+
+/** 字符串语言权重：0 中文、1 日语、2 英文、3 其他。 */
+export function stringLanguagePriority(value: string): number {
+  let kana = 0;
+  let cjk = 0;
+  let latin = 0;
+  for (const character of Array.from(value)) {
+    const code = character.codePointAt(0) ?? 0;
+    if (
+      (code >= 0x3040 && code <= 0x30ff) ||
+      (code >= 0x31f0 && code <= 0x31ff)
+    ) {
+      kana += 1;
+    } else if (code >= 0x4e00 && code <= 0x9fff) {
+      cjk += 1;
+    } else if (/[a-zA-Z]/.test(character)) {
+      latin += 1;
+    }
+  }
+  if (kana > 0) return 1;
+  if (cjk > 0) return 0;
+  if (latin > 0) return 2;
+  return 3;
+}
+
+/** 展示标题：标题与别名中按语言权重取最优（中文优先）。 */
+export function displayTitleForVisualNovel(visualNovel: VisualNovel): string {
+  const candidates = [visualNovel.title, ...(visualNovel.aliases ?? [])];
+  let best = visualNovel.title;
+  let bestPriority = stringLanguagePriority(best);
+  for (const candidate of candidates) {
+    const priority = stringLanguagePriority(candidate);
+    if (priority < bestPriority) {
+      best = candidate;
+      bestPriority = priority;
+    }
+  }
+  return best;
 }
 
 export type VisualNovelRegion = "japan" | "china" | "west";
@@ -279,6 +319,7 @@ export function submitGuess(
     guessNumber: session.guesses.length + 1,
     visualNovelId: preparedGuess.id,
     title: preparedGuess.title,
+    displayTitle: displayTitleForVisualNovel(preparedGuess),
     titleStatus: compareTitle(preparedGuess, session.answer),
     comparison: compareGuess(
       preparedGuess,
@@ -318,7 +359,13 @@ export function publicGameSession(
       session.rules.maxGuesses - session.guesses.length,
     ),
     ...(revealAnswer
-      ? { answer: { id: session.answer.id, title: session.answer.title } }
+      ? {
+          answer: {
+            id: session.answer.id,
+            title: session.answer.title,
+            displayTitle: displayTitleForVisualNovel(session.answer),
+          },
+        }
       : {}),
   };
 }
