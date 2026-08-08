@@ -1,4 +1,5 @@
 import { compareGuess } from "./comparison.js";
+import { selectImportantTags } from "./catalog.js";
 import type { ComparisonResult, GameRules, VisualNovel } from "./domain.js";
 
 export interface GuessRecord {
@@ -67,14 +68,15 @@ export function visualNovelForRules(
   visualNovel: VisualNovel,
   rules: GameRules,
 ): VisualNovel {
-  const allowedTags = visualNovel.tagDetails
-    ? visualNovel.tagDetails
-        .filter((tag) => tag.spoilerLevel <= rules.pool.maxTagSpoilerLevel)
-        .map((tag) => tag.name)
-    : (visualNovel.tags ?? []);
+  const importantTags = selectImportantTags(
+    visualNovel.tagDetails,
+    visualNovel.tags,
+    rules.pool.maxTagSpoilerLevel,
+  );
   return {
     ...structuredClone(visualNovel),
-    tags: [...new Set(allowedTags)],
+    tags: importantTags.map((tag) => tag.name),
+    tagDetails: importantTags,
   };
 }
 

@@ -103,6 +103,25 @@ describe("filterAnswerPool", () => {
       }),
     ).toHaveLength(0);
   });
+
+  it("uses only the three most important allowed tags", () => {
+    const tagged = visualNovel("ranked-tags", {
+      tags: ["Romance", "Comedy", "School", "Drama", "True Ending"],
+      tagDetails: [
+        { name: "Romance", spoilerLevel: 0, score: 2.1 },
+        { name: "Comedy", spoilerLevel: 0, score: 2.8 },
+        { name: "School", spoilerLevel: 0, score: 2.5 },
+        { name: "Drama", spoilerLevel: 0, score: 2.4 },
+        { name: "True Ending", spoilerLevel: 2, score: 3 },
+      ],
+    });
+    expect(
+      filterAnswerPool([tagged], {
+        ...rules,
+        pool: { ...rules.pool, includeTags: [], excludeTags: [] },
+      })[0]?.tags,
+    ).toEqual(["Comedy", "School", "Drama"]);
+  });
 });
 
 describe("game session", () => {

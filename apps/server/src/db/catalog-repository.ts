@@ -2,7 +2,14 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Pool } from "pg";
 import type { SourceVisualNovel } from "@gal-yiba/data";
 import { normalizeTitle } from "@gal-yiba/data";
-import type { Playtime, Provenance, VisualNovel } from "@gal-yiba/shared";
+import {
+  normalizeComparisonPlatforms,
+  selectImportantTags,
+  type Playtime,
+  type Provenance,
+  type VisualNovel,
+  type VisualNovelTag,
+} from "@gal-yiba/shared";
 
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
@@ -291,29 +298,27 @@ export class CatalogRepository {
       const items = unique(values);
       return items.length > 0 ? items : null;
     };
-    const tagDetails = new Map<
-      string,
-      {
-        name: string;
-        spoilerLevel: 0 | 1 | 2;
-        category?: "cont" | "ero" | "tech";
-      }
-    >();
-    for (const tag of records.flatMap((record) => record.tags)) {
-      const existing = tagDetails.get(tag.name);
-      const category =
-        existing?.category === "ero" || tag.category === "ero"
-          ? ("ero" as const)
-          : (tag.category ?? existing?.category);
-      const detail = {
+    const tagSource = vndbRecord ?? bangumiRecord ?? primary;
+    const tagDetailsByName = new Map<string, VisualNovelTag>();
+    for (const tag of tagSource.tags) {
+      const key = normalizeTitle(tag.name);
+      if (!key) continue;
+      const existing = tagDetailsByName.get(key);
+      if (existing && (existing.score ?? 0) > (tag.score ?? 0)) continue;
+      const detail: VisualNovelTag = {
         name: tag.name,
-        spoilerLevel: Math.max(
-          existing?.spoilerLevel ?? 0,
-          tag.spoilerLevel ?? 0,
-        ) as 0 | 1 | 2,
+        spoilerLevel: tag.spoilerLevel ?? 0,
       };
-      tagDetails.set(tag.name, category ? { ...detail, category } : detail);
+      if (tag.score != null) detail.score = tag.score;
+      if (tag.category) detail.category = tag.category;
+      tagDetailsByName.set(key, detail);
     }
+    const tagDetails = [...tagDetailsByName.values()].sort(
+      (left, right) =>
+        (right.score ?? 0) - (left.score ?? 0) ||
+        left.name.localeCompare(right.name),
+    );
+    const defaultTags = selectImportantTags(tagDetails, [], 0);
     const sourceAgeRating =
       vndbRecord?.ageRating ?? bangumiRecord?.ageRating ?? "unknown";
     const sourceAnimeAdaptation =
@@ -356,10 +361,12 @@ export class CatalogRepository {
         sourceAgeRating === "all_ages" || sourceAgeRating === "restricted"
           ? sourceAgeRating
           : null,
-      platforms: unique(records.flatMap((record) => record.platforms)),
+      platforms: normalizeComparisonPlatforms(
+        records.flatMap((record) => record.platforms),
+      ),
       languages: unique(records.flatMap((record) => record.languages)),
-      tags: [...tagDetails.keys()],
-      tagDetails: [...tagDetails.values()],
+      tags: defaultTags.map((tag) => tag.name),
+      tagDetails,
       provenance: {
         title: provenanceFor,
         developer: provenanceFor,
@@ -383,7 +390,7 @@ export class CatalogRepository {
             : provenanceForSource(vndbRecord ? "vndb" : "bangumi"),
         platforms: provenanceFor,
         languages: provenanceFor,
-        tags: provenanceFor,
+        tags: provenanceForSource(tagSource.source),
       },
     };
   }

@@ -134,9 +134,13 @@ describe("CatalogRepository", () => {
 
   it("builds a playable catalog only from verified links and preserves spoiler metadata", async () => {
     const vndb = sourceRecord({
+      platforms: ["win", "and", "ios", "web", "ps4", "ps5", "swi"],
       tags: [
-        { id: "g1", name: "Mystery", spoilerLevel: 0 },
-        { id: "g2", name: "True Ending Twist", spoilerLevel: 2 },
+        { id: "g1", name: "Mystery", spoilerLevel: 0, score: 2.8 },
+        { id: "g2", name: "Drama", spoilerLevel: 0, score: 2.5 },
+        { id: "g3", name: "Science Fiction", spoilerLevel: 0, score: 2.2 },
+        { id: "g4", name: "Romance", spoilerLevel: 0, score: 1.9 },
+        { id: "g5", name: "True Ending Twist", spoilerLevel: 2, score: 3 },
       ],
     });
     await repository.upsertSourceRecord(vndb);
@@ -156,10 +160,14 @@ describe("CatalogRepository", () => {
       vndbVoteCount: 3000,
       bangumiVoteCount: null,
       ageRating: "all_ages",
-      tags: ["Mystery", "True Ending Twist"],
+      platforms: ["PC", "PlayStation", "Nintendo Switch"],
+      tags: ["Mystery", "Drama", "Science Fiction"],
       tagDetails: [
-        { name: "Mystery", spoilerLevel: 0 },
-        { name: "True Ending Twist", spoilerLevel: 2 },
+        { name: "True Ending Twist", spoilerLevel: 2, score: 3 },
+        { name: "Mystery", spoilerLevel: 0, score: 2.8 },
+        { name: "Drama", spoilerLevel: 0, score: 2.5 },
+        { name: "Science Fiction", spoilerLevel: 0, score: 2.2 },
+        { name: "Romance", spoilerLevel: 0, score: 1.9 },
       ],
     });
   });

@@ -7,7 +7,11 @@ import express from "express";
 import { Server } from "socket.io";
 import { z } from "zod";
 import { normalizeTitle } from "@gal-yiba/data";
-import { comparisonKeys, type GameRules } from "@gal-yiba/shared";
+import {
+  comparisonKeys,
+  selectImportantTags,
+  type GameRules,
+} from "@gal-yiba/shared";
 import {
   CatalogRepository,
   createDatabasePool,
@@ -139,11 +143,11 @@ app.get("/api/catalog/tags", async (request, response, next) => {
     const counts = new Map<string, number>();
     for (const visualNovel of await loadCatalog()) {
       if (allAgesOnly && visualNovel.ageRating !== "all_ages") continue;
-      const tags = visualNovel.tagDetails
-        ? visualNovel.tagDetails
-            .filter((tag) => tag.spoilerLevel <= maxSpoilerLevel)
-            .map((tag) => tag.name)
-        : (visualNovel.tags ?? []);
+      const tags = selectImportantTags(
+        visualNovel.tagDetails,
+        visualNovel.tags,
+        maxSpoilerLevel,
+      ).map((tag) => tag.name);
       for (const tag of new Set(tags))
         counts.set(tag, (counts.get(tag) ?? 0) + 1);
     }

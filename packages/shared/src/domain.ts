@@ -60,6 +60,7 @@ export interface Provenance {
 export interface VisualNovelTag {
   name: string;
   spoilerLevel: 0 | 1 | 2;
+  score?: number;
   category?: "cont" | "ero" | "tech";
 }
 
