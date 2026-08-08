@@ -550,6 +550,7 @@ describe("room chat", () => {
       playerId: host.session.playerId,
       nickname: "房主",
       text: "大家加油！",
+      audioId: null,
       at: "2026-08-08T00:00:00.000Z",
     });
     expect(registry.chatHistory(host.room.code)).toHaveLength(1);
