@@ -305,6 +305,7 @@ export function App() {
     const onRoomUpdated = (nextRoom: RoomSnapshot) => {
       setRoom(nextRoom);
       setSelected(nextRoom.rules.comparisonKeys);
+      if (!nextRoom.round) setGame(null);
       if (nextRoom.players.length >= 2) {
         setError((current) =>
           current === "NOT_ENOUGH_PLAYERS" ? "" : current,
@@ -435,6 +436,17 @@ export function App() {
         setSearchQuery("");
         setSearchItems([]);
         setError("");
+      },
+    );
+  }
+
+  function rematchRoom() {
+    socket.emit(
+      "room:rematch",
+      {},
+      (response: { ok: boolean; error?: string }) => {
+        if (!response.ok) setError(response.error ?? "REMATCH_FAILED");
+        else setError("");
       },
     );
   }
@@ -1224,20 +1236,28 @@ export function App() {
                 </div>
               )
             ) : (
-              <div className="answer-banner">
-                <span>
-                  {matchWon
-                    ? "你赢得了整场比赛"
-                    : activeGame.status === "won"
-                      ? "你抢先猜中了"
-                      : "本轮答案"}
-                </span>
-                <strong>
-                  {activeGame.answer?.title ??
-                    room?.round?.answer?.title ??
-                    "等待结算"}
-                </strong>
-              </div>
+              <>
+                <div className="answer-banner">
+                  <span>
+                    {matchWon
+                      ? "你赢得了整场比赛"
+                      : activeGame.status === "won"
+                        ? "你抢先猜中了"
+                        : "本轮答案"}
+                  </span>
+                  <strong>
+                    {activeGame.answer?.title ??
+                      room?.round?.answer?.title ??
+                      "等待结算"}
+                  </strong>
+                </div>
+                {room?.phase === "finished" &&
+                room?.hostPlayerId === session?.playerId ? (
+                  <button className="rematch-button" onClick={rematchRoom}>
+                    再来一局 · 同房间继续
+                  </button>
+                ) : null}
+              </>
             )}
 
             {room?.rules.mode === "duel" ? (

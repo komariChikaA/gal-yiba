@@ -341,6 +341,22 @@ export class RoomRegistry {
     this.startRound(room, { now });
   }
 
+  rematch(code: string, playerId: string): RoomSnapshot {
+    const room = this.requireRoom(code);
+    if (room.phase !== "finished") throw new Error("ROOM_NOT_FINISHED");
+    if (room.hostPlayerId !== playerId) throw new Error("HOST_ONLY");
+    room.phase = "lobby";
+    room.round = null;
+    room.winnerPlayerId = null;
+    room.matchWinnerPlayerId = null;
+    for (const player of room.players.values()) player.ready = false;
+    for (const playerIdKey of room.scores.keys()) {
+      room.scores.set(playerIdKey, 0);
+    }
+    room.revision += 1;
+    return snapshot(room);
+  }
+
   submitPlayerGuess(
     code: string,
     playerId: string,

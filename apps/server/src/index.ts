@@ -312,6 +312,20 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("room:rematch", async (_payload: unknown, acknowledge) => {
+    try {
+      const identity = socketIdentity(socket);
+      const room = rooms.rematch(identity.roomCode, identity.playerId);
+      acknowledge({ ok: true, room });
+      await broadcastRoomState(room.code);
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
   socket.on("room:join", (payload: unknown, acknowledge) => {
     try {
       const input = joinSchema.parse(payload);

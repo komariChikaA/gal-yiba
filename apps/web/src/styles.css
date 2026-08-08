@@ -1345,6 +1345,13 @@ footer {
   background: linear-gradient(135deg, var(--coral-strong), var(--mint-strong));
   box-shadow: 0 8px 18px var(--shadow-strong);
 }
+.rematch-button {
+  margin-top: 18px;
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--coral-strong), var(--mint-strong));
+  box-shadow: 0 8px 18px var(--shadow-strong);
+}
 .error-message,
 .player-list .offline-mark {
   color: var(--danger);

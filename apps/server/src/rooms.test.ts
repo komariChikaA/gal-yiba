@@ -291,3 +291,80 @@ describe("best-of rounds", () => {
     expect(registry.get(host.room.code).matchWinnerPlayerId).toBeNull();
   });
 });
+
+describe("rematch in the same room", () => {
+  it("resets a finished match back to a lobby for another run", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel");
+    const guest = registry.join(host.room.code, "玩家二");
+    registry.setReady(host.room.code, guest.session.playerId, true);
+    const catalog = [visualNovel("answer")];
+    registry.start(host.room.code, host.session.playerId, catalog, {
+      random: () => 0,
+      now: new Date("2026-08-08T00:00:00.000Z"),
+    });
+    const finished = registry.submitPlayerGuess(
+      host.room.code,
+      guest.session.playerId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:00:05.000Z"),
+    );
+    expect(finished.room.phase).toBe("finished");
+
+    const lobby = registry.rematch(host.room.code, host.session.playerId);
+    expect(lobby.phase).toBe("lobby");
+    expect(lobby.round).toBeNull();
+    expect(lobby.matchWinnerPlayerId).toBeNull();
+    expect(lobby.scores).toEqual([
+      { playerId: host.session.playerId, wins: 0 },
+      { playerId: guest.session.playerId, wins: 0 },
+    ]);
+    expect(lobby.players.every((player) => !player.ready)).toBe(true);
+
+    registry.setReady(host.room.code, guest.session.playerId, true);
+    const second = registry.start(
+      host.room.code,
+      host.session.playerId,
+      catalog,
+      {
+        random: () => 0,
+        now: new Date("2026-08-08T00:01:00.000Z"),
+      },
+    );
+    expect(second.phase).toBe("active");
+    expect(second.round?.roundNumber).toBe(1);
+  });
+
+  it("lets only the host rematch and only after the match finished", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel");
+    const guest = registry.join(host.room.code, "玩家二");
+    const catalog = [visualNovel("answer")];
+    expect(() =>
+      registry.rematch(host.room.code, host.session.playerId),
+    ).toThrow("ROOM_NOT_FINISHED");
+
+    registry.setReady(host.room.code, guest.session.playerId, true);
+    registry.start(host.room.code, host.session.playerId, catalog, {
+      random: () => 0,
+    });
+    expect(() =>
+      registry.rematch(host.room.code, guest.session.playerId),
+    ).toThrow("ROOM_NOT_FINISHED");
+
+    registry.submitPlayerGuess(
+      host.room.code,
+      guest.session.playerId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:00:05.000Z"),
+    );
+    expect(() =>
+      registry.rematch(host.room.code, guest.session.playerId),
+    ).toThrow("HOST_ONLY");
+    expect(
+      registry.rematch(host.room.code, host.session.playerId).phase,
+    ).toBe("lobby");
+  });
+});
