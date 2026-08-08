@@ -4,6 +4,7 @@ import {
   createDatabasePool,
   migrateDatabase,
 } from "../db/index.js";
+import { CatalogSyncService } from "../services/catalog-sync.js";
 
 function argument(name: string): string | undefined {
   const prefix = `--${name}=`;
@@ -13,9 +14,9 @@ function argument(name: string): string | undefined {
 }
 
 const command = process.argv[2];
-if (!command || !["list", "approve", "reject"].includes(command)) {
+if (!command || !["list", "rebuild", "approve", "reject"].includes(command)) {
   throw new Error(
-    "Usage: review-mappings.ts <list|approve|reject> [--source=bangumi] [--source-id=123]",
+    "Usage: review-mappings.ts <list|rebuild|approve|reject> [--source=bangumi] [--source-id=123] [--limit=100]",
   );
 }
 
@@ -29,6 +30,14 @@ try {
     console.log(
       JSON.stringify({ count: suggestions.length, suggestions }, null, 2),
     );
+  } else if (command === "rebuild") {
+    const limit = Number(argument("limit") ?? 5_000);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 20_000)
+      throw new Error("INVALID_LIMIT");
+    const summary = await new CatalogSyncService(
+      pool,
+    ).rebuildBangumiSuggestions(limit);
+    console.log(JSON.stringify(summary));
   } else {
     const source = argument("source");
     const sourceId = argument("source-id");

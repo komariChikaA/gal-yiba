@@ -2,6 +2,7 @@ import { newDb } from "pg-mem";
 import type { Pool } from "pg";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { PagedResult, SourceVisualNovel } from "@gal-yiba/data";
+import { CatalogRepository } from "../db/catalog-repository.js";
 import { migrateDatabase } from "../db/migrate.js";
 import { CatalogSyncService } from "./catalog-sync.js";
 
@@ -149,5 +150,23 @@ describe("CatalogSyncService", () => {
         titleOverlap: ["senrenbanka", "千恋万花"],
       },
     });
+  });
+
+  it("rebuilds suggestions for existing unlinked Bangumi records", async () => {
+    await service.syncPage("vndb", "1", async () => ({
+      items: [record("vndb")],
+      hasMore: false,
+      nextCursor: null,
+    }));
+    await new CatalogRepository(pool).upsertSourceRecord(record("bangumi"));
+
+    await expect(service.rebuildBangumiSuggestions()).resolves.toEqual({
+      recordsSeen: 1,
+      suggestionsWritten: 1,
+    });
+    const result = await pool.query<{ link_status: string }>(
+      "SELECT link_status FROM source_links WHERE source = 'bangumi'",
+    );
+    expect(result.rows).toEqual([{ link_status: "suggested" }]);
   });
 });

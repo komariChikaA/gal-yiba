@@ -146,6 +146,26 @@ export class CatalogRepository {
     return result.rows.map((row) => row.normalized);
   }
 
+  async listSourceRecordsForMapping(
+    source: SourceVisualNovel["source"],
+    limit = 5_000,
+  ): Promise<SourceVisualNovel[]> {
+    const result = await this.database.query<{
+      normalized: SourceVisualNovel;
+    }>(
+      `SELECT sr.normalized
+       FROM source_records sr
+       LEFT JOIN source_links sl
+         ON sl.source = sr.source AND sl.source_id = sr.source_id
+       WHERE sr.source = $1
+         AND (sl.source_id IS NULL OR sl.link_status = 'suggested')
+       ORDER BY sr.updated_at ASC, sr.source_id ASC
+       LIMIT $2`,
+      [source, Math.max(1, Math.min(20_000, limit))],
+    );
+    return result.rows.map((row) => row.normalized);
+  }
+
   async suggestLink(
     canonicalId: string,
     record: SourceVisualNovel,

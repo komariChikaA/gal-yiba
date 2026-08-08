@@ -16,11 +16,59 @@ export interface SyncSummary {
   recordsWritten: number;
 }
 
+export interface MappingRebuildSummary {
+  recordsSeen: number;
+  suggestionsWritten: number;
+}
+
 export class CatalogSyncService {
   private readonly repository: CatalogRepository;
 
   constructor(private readonly database: Pool) {
     this.repository = new CatalogRepository(database);
+  }
+
+  private async suggestBangumiMapping(
+    record: SourceVisualNovel,
+  ): Promise<boolean> {
+    const candidates = await this.repository.findCrossSourceCandidates(record);
+    const scored = candidates
+      .map((candidate) => ({
+        candidate,
+        score: scoreSourceMatch(candidate, record),
+      }))
+      .filter((item) => item.score.decision !== "unlikely")
+      .sort((left, right) => right.score.confidence - left.score.confidence);
+    const best = scored[0];
+    const second = scored[1];
+    if (!best || (second && best.score.confidence <= second.score.confidence))
+      return false;
+    const canonicalId = await this.repository.findCanonicalIdBySource(
+      best.candidate.source,
+      best.candidate.sourceId,
+    );
+    if (!canonicalId) return false;
+    await this.repository.suggestLink(
+      canonicalId,
+      record,
+      best.score.confidence,
+      best.score.evidence,
+    );
+    return true;
+  }
+
+  async rebuildBangumiSuggestions(
+    limit = 5_000,
+  ): Promise<MappingRebuildSummary> {
+    const records = await this.repository.listSourceRecordsForMapping(
+      "bangumi",
+      limit,
+    );
+    let suggestionsWritten = 0;
+    for (const record of records) {
+      if (await this.suggestBangumiMapping(record)) suggestionsWritten += 1;
+    }
+    return { recordsSeen: records.length, suggestionsWritten };
   }
 
   async syncPage(
@@ -53,36 +101,7 @@ export class CatalogSyncService {
           await this.repository.createCanonicalFromSource(record);
         }
         if (source === "bangumi") {
-          const candidates =
-            await this.repository.findCrossSourceCandidates(record);
-          const scored = candidates
-            .map((candidate) => ({
-              candidate,
-              score: scoreSourceMatch(candidate, record),
-            }))
-            .filter((item) => item.score.decision !== "unlikely")
-            .sort(
-              (left, right) => right.score.confidence - left.score.confidence,
-            );
-          const best = scored[0];
-          const second = scored[1];
-          if (
-            best &&
-            (!second || best.score.confidence > second.score.confidence)
-          ) {
-            const canonicalId = await this.repository.findCanonicalIdBySource(
-              best.candidate.source,
-              best.candidate.sourceId,
-            );
-            if (canonicalId) {
-              await this.repository.suggestLink(
-                canonicalId,
-                record,
-                best.score.confidence,
-                best.score.evidence,
-              );
-            }
-          }
+          await this.suggestBangumiMapping(record);
         }
       }
       await this.database.query(
