@@ -670,6 +670,7 @@ export function App() {
     };
     recorder.onstop = () => {
       stream.getTracks().forEach((track) => track.stop());
+      mediaRecorderRef.current = null;
       if (recordingTimerRef.current !== null) {
         window.clearTimeout(recordingTimerRef.current);
         recordingTimerRef.current = null;
@@ -691,6 +692,7 @@ export function App() {
     };
     recorder.onerror = () => {
       stream.getTracks().forEach((track) => track.stop());
+      mediaRecorderRef.current = null;
       setRecording(false);
       setRecordingSeconds(0);
       setError("录音失败");
