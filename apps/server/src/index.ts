@@ -553,9 +553,9 @@ io.on("connection", (socket) => {
           visualNovelId,
           catalog,
         );
+        acknowledge({ ok: true, ...result });
         await broadcastRoomState(result.room.code);
         await persistMatchIfFinished(result.room.code);
-        acknowledge({ ok: true, ...result });
       } catch (error) {
         acknowledge({
           ok: false,
