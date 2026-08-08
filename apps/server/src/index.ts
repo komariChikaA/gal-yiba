@@ -26,7 +26,7 @@ import { DailyRegistry } from "./services/daily.js";
 import { MatchRecorder } from "./services/match-recorder.js";
 import { searchCatalog } from "./services/catalog-search.js";
 import { CatalogSyncService } from "./services/catalog-sync.js";
-
+import { demoCatalog } from "./demo-catalog.js";
 const port = Number(process.env.PORT ?? 3000);
 const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
 const app = express();
@@ -48,12 +48,13 @@ let catalogCache: Awaited<ReturnType<typeof CatalogRepository.prototype.listVisu
 let catalogCacheAt = 0;
 
 async function loadCatalog() {
+  if (!catalogRepository) return demoCatalog;
   const now = Date.now();
   if (catalogCache && now - catalogCacheAt < 300_000) return catalogCache;
-  const catalog = catalogRepository?.listVisualNovels() ?? [];
-  catalogCache = await catalog;
+  const catalog = await catalogRepository.listVisualNovels();
+  catalogCache = catalog;
   catalogCacheAt = now;
-  return catalogCache;
+  return catalog;
 }
 const nicknameSchema = z.string().trim().min(1).max(20);
 const playerIdSchema = z.string().uuid().optional();

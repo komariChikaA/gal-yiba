@@ -130,6 +130,7 @@ interface RoomSnapshot {
       playerId: string;
       status: string;
       guessCount: number;
+      guessStatuses: string[];
       finishedAt: string | null;
     }>;
   } | null;
@@ -1552,12 +1553,26 @@ export function App() {
                       >
                         <small>{isSelf ? "自己" : "对手"}</small>
                         <span>{player?.nickname ?? "玩家"}</span>
-                        <b>
-                          {formatGuessStars(
-                            playerProgress.guessCount,
-                            room.rules.maxGuesses,
+                        <span
+                          className="duel-lights"
+                          aria-label={
+                            isSelf
+                              ? "你的猜测进度"
+                              : "对手的猜测进度（仅显示颜色）"
+                          }
+                        >
+                          {Array.from(
+                            { length: room.rules.maxGuesses },
+                            (_, index) => (
+                              <i
+                                key={index}
+                                className={
+                                  playerProgress.guessStatuses[index] ?? ""
+                                }
+                              />
+                            ),
                           )}
-                        </b>
+                        </span>
                         <i>
                           {playerProgress.guessCount} / {room.rules.maxGuesses}{" "}
                           次
