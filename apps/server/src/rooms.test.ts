@@ -37,6 +37,7 @@ describe("RoomRegistry", () => {
       "玩家二",
     ]);
     expect(created.room.rules.comparisonKeys).toEqual([
+      "developer",
       "heroineHairColor",
       "vndbRating",
       "bangumiRating",

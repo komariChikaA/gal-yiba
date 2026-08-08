@@ -19,6 +19,7 @@ export const comparisonKeys = [
 export type ComparisonKey = (typeof comparisonKeys)[number];
 
 export const defaultComparisonKeys = [
+  "developer",
   "heroineHairColor",
   "vndbRating",
   "bangumiRating",
