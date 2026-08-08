@@ -32,6 +32,7 @@ export interface RoomSnapshot {
   winnerPlayerId: string | null;
   matchWinnerPlayerId: string | null;
   scores: Array<{ playerId: string; wins: number }>;
+  intermissionDeadlineAt: string | null;
   revision: number;
 }
 
@@ -158,6 +159,7 @@ function snapshot(room: MutableRoom): RoomSnapshot {
     winnerPlayerId: room.winnerPlayerId,
     matchWinnerPlayerId: room.matchWinnerPlayerId,
     scores: [...room.scores].map(([playerId, wins]) => ({ playerId, wins })),
+    intermissionDeadlineAt: room.intermissionDeadlineAt,
     revision: room.revision,
   };
 }
@@ -198,6 +200,7 @@ export class RoomRegistry {
       round: null,
       winnerPlayerId: null,
       matchWinnerPlayerId: null,
+      intermissionDeadlineAt: null,
       scores: new Map([[playerId, 0]]),
       catalog: [],
       roundHistory: [],
@@ -291,6 +294,17 @@ export class RoomRegistry {
     if (!player) throw new Error("PLAYER_NOT_FOUND");
     player.ready = ready;
     room.revision += 1;
+    if (room.phase === "round_result" && ready) {
+      const connectedPlayers = [...room.players.values()].filter(
+        (playerEntry) => playerEntry.connected,
+      );
+      if (
+        connectedPlayers.length > 0 &&
+        connectedPlayers.every((playerEntry) => playerEntry.ready)
+      ) {
+        this.startRound(room, { now: new Date() });
+      }
+    }
     return snapshot(room);
   }
 
@@ -352,7 +366,25 @@ export class RoomRegistry {
     });
     room.phase = "active";
     room.winnerPlayerId = null;
+    room.intermissionDeadlineAt = null;
     room.revision += 1;
+  }
+
+  /** 进入 60 秒中场休息：揭示答案供交流，全员准备可提前开局。 */
+  private enterIntermission(room: MutableRoom, now: Date): void {
+    room.phase = "round_result";
+    room.intermissionDeadlineAt = new Date(
+      now.getTime() + 60_000,
+    ).toISOString();
+    for (const player of room.players.values()) player.ready = false;
+  }
+
+  /** 中场倒计时结束：无论准备与否都开下一轮。 */
+  advanceIntermission(codeInput: string, now = new Date()): RoomSnapshot | null {
+    const room = this.rooms.get(codeInput.trim().toUpperCase());
+    if (room?.phase !== "round_result") return null;
+    this.startRound(room, { now });
+    return snapshot(room);
   }
 
   private settleRound(
@@ -386,9 +418,10 @@ export class RoomRegistry {
     ) {
       room.phase = "finished";
       room.matchWinnerPlayerId = winnerId;
+      room.intermissionDeadlineAt = null;
       return;
     }
-    this.startRound(room, { now });
+    this.enterIntermission(room, now);
   }
 
 
@@ -401,6 +434,7 @@ export class RoomRegistry {
     room.roundHistory = [];
     room.winnerPlayerId = null;
     room.matchWinnerPlayerId = null;
+    room.intermissionDeadlineAt = null;
     for (const player of room.players.values()) player.ready = false;
     for (const playerIdKey of room.scores.keys()) {
       room.scores.set(playerIdKey, 0);
@@ -547,7 +581,7 @@ export class RoomRegistry {
       room.hostPlayerId = room.players.keys().next().value as string;
     }
     if (
-      room.phase === "active" &&
+      (room.phase === "active" || room.phase === "round_result") &&
       room.round &&
       room.rules.mode !== "solo" &&
       room.round.playerGames.size === 1

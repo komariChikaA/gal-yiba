@@ -120,7 +120,11 @@ async function broadcastRoomState(roomCode: string): Promise<void> {
   const room = rooms.get(roomCode);
   io.to(roomCode).emit("room:updated", room);
   if (!room.round) return;
-  scheduleRoomExpiry(room.code, room.round.deadlineAt);
+  if (room.phase === "active") {
+    scheduleRoomExpiry(room.code, room.round.deadlineAt);
+  } else if (room.phase === "round_result" && room.intermissionDeadlineAt) {
+    scheduleIntermissionEnd(room.code, room.intermissionDeadlineAt);
+  }
   const sockets = await io.in(roomCode).fetchSockets();
   for (const roomSocket of sockets) {
     try {
@@ -150,6 +154,16 @@ function scheduleRoomExpiry(roomCode: string, deadlineAt: string): void {
     if (expiredRoom) {
       void broadcastRoomState(expiredRoom.code);
       void persistMatchIfFinished(expiredRoom.code);
+    }
+  }, delay).unref();
+}
+
+function scheduleIntermissionEnd(roomCode: string, deadlineAt: string): void {
+  const delay = Math.max(0, Date.parse(deadlineAt) - Date.now()) + 50;
+  setTimeout(() => {
+    const advancedRoom = rooms.advanceIntermission(roomCode);
+    if (advancedRoom) {
+      void broadcastRoomState(advancedRoom.code);
     }
   }, delay).unref();
 }

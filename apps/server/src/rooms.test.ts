@@ -228,7 +228,7 @@ describe("best-of rounds", () => {
     return { host, guest };
   }
 
-  it("advances rounds until a player reaches the match target", () => {
+  it("rests between rounds and reveals the answer during intermission", () => {
     const registry = new RoomRegistry();
     const { host, guest } = startDuel(registry, 3);
     const first = registry.submitPlayerGuess(
@@ -238,28 +238,71 @@ describe("best-of rounds", () => {
       catalog,
       new Date("2026-08-08T00:00:05.000Z"),
     );
-    expect(first.room.phase).toBe("active");
-    expect(first.room.round?.roundNumber).toBe(2);
+    expect(first.room.phase).toBe("round_result");
+    expect(first.room.round?.roundNumber).toBe(1);
+    expect(first.room.round?.answer?.title).toBe("作品 answer");
+    expect(first.room.intermissionDeadlineAt).toBe(
+      "2026-08-08T00:01:05.000Z",
+    );
     expect(first.room.scores).toEqual([
       { playerId: host.session.playerId, wins: 0 },
       { playerId: guest.session.playerId, wins: 1 },
     ]);
     expect(first.room.matchWinnerPlayerId).toBeNull();
+  });
 
-    const second = registry.submitPlayerGuess(
+  it("starts the next round early when everyone readies up", () => {
+    const registry = new RoomRegistry();
+    const { host, guest } = startDuel(registry, 3);
+    registry.submitPlayerGuess(
       host.room.code,
       guest.session.playerId,
       "answer",
       catalog,
-      new Date("2026-08-08T00:01:05.000Z"),
+      new Date("2026-08-08T00:00:05.000Z"),
     );
-    expect(second.room.phase).toBe("finished");
-    expect(second.room.round?.roundNumber).toBe(2);
-    expect(second.room.matchWinnerPlayerId).toBe(guest.session.playerId);
-    expect(second.room.scores).toEqual([
+    registry.setReady(host.room.code, host.session.playerId, true);
+    const second = registry.setReady(
+      host.room.code,
+      guest.session.playerId,
+      true,
+    );
+    expect(second.phase).toBe("active");
+    expect(second.round?.roundNumber).toBe(2);
+    expect(second.intermissionDeadlineAt).toBeNull();
+    expect(second.players.every((player) => !player.ready)).toBe(true);
+
+    const finished = registry.submitPlayerGuess(
+      host.room.code,
+      guest.session.playerId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:02:05.000Z"),
+    );
+    expect(finished.room.phase).toBe("finished");
+    expect(finished.room.matchWinnerPlayerId).toBe(guest.session.playerId);
+    expect(finished.room.scores).toEqual([
       { playerId: host.session.playerId, wins: 0 },
       { playerId: guest.session.playerId, wins: 2 },
     ]);
+  });
+
+  it("starts the next round after the intermission deadline regardless of readiness", () => {
+    const registry = new RoomRegistry();
+    const { host, guest } = startDuel(registry, 3);
+    registry.submitPlayerGuess(
+      host.room.code,
+      guest.session.playerId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:00:05.000Z"),
+    );
+    const advanced = registry.advanceIntermission(
+      host.room.code,
+      new Date("2026-08-08T00:01:05.000Z"),
+    );
+    expect(advanced?.phase).toBe("active");
+    expect(advanced?.round?.roundNumber).toBe(2);
   });
 
   it("ends the match by forfeit when the opponent leaves", () => {
@@ -280,13 +323,23 @@ describe("best-of rounds", () => {
       const expired = registry.expire(
         host.room.code,
         new Date(
-          `2026-08-08T00:${String(round * 5).padStart(2, "0")}:00.000Z`,
+          `2026-08-08T00:${String(round * 6).padStart(2, "0")}:00.000Z`,
         ),
       );
-      expect(expired?.phase).toBe(round < 3 ? "active" : "finished");
-      expect(expired?.round?.roundNumber).toBe(
-        round < 3 ? round + 1 : round,
-      );
+      if (round < 3) {
+        expect(expired?.phase).toBe("round_result");
+        const advanced = registry.advanceIntermission(
+          host.room.code,
+          new Date(
+            `2026-08-08T00:${String(round * 6 + 1).padStart(2, "0")}:00.000Z`,
+          ),
+        );
+        expect(advanced?.phase).toBe("active");
+        expect(advanced?.round?.roundNumber).toBe(round + 1);
+      } else {
+        expect(expired?.phase).toBe("finished");
+        expect(expired?.round?.roundNumber).toBe(round);
+      }
     }
     expect(registry.get(host.room.code).matchWinnerPlayerId).toBeNull();
   });
@@ -435,12 +488,14 @@ describe("stable player identity and match reports", () => {
       catalog,
       new Date("2026-08-08T00:00:05.000Z"),
     );
+    registry.setReady(host.room.code, hostId, true);
+    registry.setReady(host.room.code, guestId, true);
     registry.submitPlayerGuess(
       host.room.code,
       guestId,
       "answer",
       catalog,
-      new Date("2026-08-08T00:01:05.000Z"),
+      new Date("2026-08-08T00:02:05.000Z"),
     );
     const report = registry.getMatchReport(host.room.code);
     expect(report?.rounds).toHaveLength(2);

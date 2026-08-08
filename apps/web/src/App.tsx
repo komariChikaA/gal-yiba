@@ -136,6 +136,7 @@ interface RoomSnapshot {
   winnerPlayerId: string | null;
   matchWinnerPlayerId: string | null;
   scores: Array<{ playerId: string; wins: number }>;
+  intermissionDeadlineAt: string | null;
   revision: number;
 }
 
@@ -316,11 +317,20 @@ export function App() {
   }, [colorTheme]);
 
   useEffect(() => {
-    if (!activeGame || activeGame.status !== "active") return;
+    const ticking =
+      (activeGame != null && activeGame.status === "active") ||
+      room?.phase === "round_result";
+    if (!ticking) return;
     setClockNow(Date.now());
     const timer = window.setInterval(() => setClockNow(Date.now()), 250);
     return () => window.clearInterval(timer);
-  }, [activeGame?.id, activeGame?.status, activeGame?.deadlineAt]);
+  }, [
+    activeGame?.id,
+    activeGame?.status,
+    activeGame?.deadlineAt,
+    room?.phase,
+    room?.intermissionDeadlineAt,
+  ]);
 
   useEffect(() => {
     void fetch("/api/catalog/fame-tiers")
@@ -1426,6 +1436,32 @@ export function App() {
               </div>
             )}
 
+
+            {room?.phase === "round_result" &&
+              room?.intermissionDeadlineAt != null && (
+                <div className="intermission-bar">
+                  <span>中场休息 · 答案已揭晓，可交流战术</span>
+                  <b>
+                    {formatCountdown(
+                      Math.max(
+                        0,
+                        Math.ceil(
+                          (Date.parse(room.intermissionDeadlineAt) - clockNow) /
+                            1000,
+                        ),
+                      ),
+                    )}
+                  </b>
+                  <button
+                    type="button"
+                    className={currentPlayer?.ready ? "ready" : ""}
+                    onClick={toggleReady}
+                  >
+                    {currentPlayer?.ready ? "已准备" : "我准备好了"}
+                  </button>
+                  <small>全员准备可提前开始下一轮</small>
+                </div>
+              )}
             {activeGame.status === "active" ? (
               remainingSeconds > 0 ? (
                 <div className="game-search">

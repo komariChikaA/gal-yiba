@@ -1966,3 +1966,45 @@ footer b {
   font-weight: 400;
   letter-spacing: 0.02em;
 }
+.intermission-bar {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  border: 2px solid var(--mint);
+  border-radius: 15px;
+  margin: 16px 0 0;
+  padding: 14px 18px;
+  background: color-mix(in srgb, var(--mint-soft) 55%, var(--surface-solid));
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--mint) 30%, transparent);
+}
+.intermission-bar span {
+  color: var(--ink);
+  font-size: 13px;
+}
+.intermission-bar b {
+  color: var(--coral-strong);
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.intermission-bar button {
+  border-color: var(--mint-strong);
+  color: #fff;
+  background: linear-gradient(135deg, var(--coral-strong), var(--mint-strong));
+}
+.intermission-bar button.ready {
+  border-color: transparent;
+  color: var(--ink-strong);
+  background: var(--mint-soft);
+}
+.intermission-bar small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 11px;
+}
+@media (max-width: 980px) {
+  .intermission-bar {
+    grid-template-columns: 1fr auto;
+  }
+}
