@@ -16,7 +16,14 @@ import {
   formatCountdown,
   formatGuessStars,
 } from "./comparison-format";
-
+import {
+  featureCodeToPlayerId,
+  loadFeatureCode,
+  loadPlayerId,
+  normalizeFeatureCode,
+  resolvePlayerId,
+  saveFeatureCode,
+} from "./identity";
 const socket = io({ autoConnect: true });
 
 const comparisonLabels: Record<ComparisonKey, string> = {
@@ -210,41 +217,6 @@ interface MappingRebuildSummary {
 
 const ADMIN_TOKEN_KEY = "gal-yiba-admin-token";
 
-const PLAYER_ID_KEY = "gal-yiba-player-id";
-
-function loadPlayerId(): string {
-  const stored = localStorage.getItem(PLAYER_ID_KEY);
-  if (
-    stored &&
-    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      stored,
-    )
-  ) {
-    return stored;
-  }
-  let id: string;
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    id = crypto.randomUUID();
-  } else {
-    const hex = "0123456789abcdef";
-    let result = "";
-    for (let index = 0; index < 36; index += 1) {
-      if (index === 8 || index === 13 || index === 18 || index === 23) {
-        result += "-";
-      } else if (index === 14) {
-        result += "4";
-      } else if (index === 19) {
-        result += hex[8 + Math.floor(Math.random() * 4)];
-      } else {
-        result += hex[Math.floor(Math.random() * 16)];
-      }
-    }
-    id = result;
-  }
-  localStorage.setItem(PLAYER_ID_KEY, id);
-  return id;
-}
-
 export function App() {
   const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
     return localStorage.getItem("gal-yiba-color-theme") === "night"
@@ -252,7 +224,10 @@ export function App() {
       : "day";
   });
   const [connected, setConnected] = useState(socket.connected);
-  const [playerId] = useState(() => loadPlayerId());
+  const [featureCode, setFeatureCode] = useState(() => loadFeatureCode());
+  const [playerId, setPlayerId] = useState(() =>
+    resolvePlayerId(loadFeatureCode()),
+  );
   const [nickname, setNickname] = useState("");
   const [selectedMode, setSelectedMode] = useState<GameMode>("solo");
   const [selectedFameTier, setSelectedFameTier] =
@@ -608,6 +583,18 @@ export function App() {
     localStorage.setItem("gal-yiba-last-room", response.room.code);
   }
 
+  function applyFeatureCode(raw: string) {
+    const normalized = normalizeFeatureCode(raw);
+    setFeatureCode(normalized);
+    if (normalized.length >= 4) {
+      saveFeatureCode(normalized);
+      setPlayerId(featureCodeToPlayerId(normalized));
+    } else if (normalized.length === 0) {
+      saveFeatureCode("");
+      setPlayerId(loadPlayerId());
+    }
+  }
+
   function createRoom() {
     socket.emit(
       "room:create",
@@ -933,6 +920,22 @@ export function App() {
                       maxLength={20}
                       onChange={(event) => setNickname(event.target.value)}
                       placeholder="输入 1–20 个字符"
+                    />
+                  </label>
+                  <label>
+                    <span>
+                      特征码
+                      <small className="optional-hint">
+                        （可选，≥4 位字母数字，跨设备同步战绩）
+                      </small>
+                    </span>
+                    <input
+                      value={featureCode}
+                      maxLength={16}
+                      onChange={(event) =>
+                        applyFeatureCode(event.target.value)
+                      }
+                      placeholder="留空则匿名统计"
                     />
                   </label>
                   <div className="entry-section">
@@ -1645,6 +1648,15 @@ export function App() {
                 ×
               </button>
             </header>
+            <p className="leaderboard-identity">
+              {featureCode.length >= 4 ? (
+                <>
+                  我的特征码：<b>{featureCode}</b>（跨设备同步战绩）
+                </>
+              ) : (
+                <>当前为匿名玩家，输入特征码后战绩可跨设备同步</>
+              )}
+            </p>
             <div className="leaderboard-filters">
               {(["all", "solo", "duel", "race"] as const).map((mode) => (
                 <button

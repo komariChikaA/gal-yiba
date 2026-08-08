@@ -1942,3 +1942,20 @@ footer b {
   color: var(--muted);
   font-size: 11px;
 }
+.optional-hint {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin-left: 6px;
+}
+.leaderboard-identity {
+  color: var(--muted);
+  font-size: 12px;
+  margin: -6px 0 14px;
+}
+.leaderboard-identity b {
+  color: var(--coral-strong);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  letter-spacing: 0.12em;
+}
