@@ -55,6 +55,13 @@ try {
       `solo mode failed: ${soloStarted.error ?? "invalid state"}`,
     );
   }
+  if (
+    Date.parse(soloStarted.game.deadlineAt) -
+      Date.parse(soloStarted.game.startedAt) !==
+    300_000
+  ) {
+    throw new Error("default round duration is not five minutes");
+  }
   await emitAck(solo, "room:leave", {});
 
   const host = await connect();

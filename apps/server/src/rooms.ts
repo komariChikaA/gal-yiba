@@ -66,7 +66,7 @@ export const defaultRules: GameRules = {
   version: 1,
   mode: "race",
   maxGuesses: 8,
-  roundTimeSeconds: 120,
+  roundTimeSeconds: 300,
   bestOf: 1,
   comparisonKeys: [...defaultComparisonKeys],
   pool: {
@@ -348,6 +348,26 @@ export class RoomRegistry {
 
   get(code: string): RoomSnapshot {
     return snapshot(this.requireRoom(code.trim().toUpperCase()));
+  }
+
+  expire(codeInput: string, now = new Date()): RoomSnapshot | null {
+    const room = this.rooms.get(codeInput.trim().toUpperCase());
+    if (room?.phase !== "active" || !room.round) return null;
+    const games = [...room.round.playerGames.values()];
+    const deadlineAt = games[0]?.deadlineAt;
+    if (!deadlineAt || now.getTime() < Date.parse(deadlineAt)) return null;
+    for (const [playerId, game] of room.round.playerGames) {
+      if (game.status !== "active") continue;
+      room.round.playerGames.set(playerId, {
+        ...game,
+        status: "expired",
+        finishedAt: now.toISOString(),
+      });
+    }
+    room.phase = "finished";
+    room.winnerPlayerId = null;
+    room.revision += 1;
+    return snapshot(room);
   }
 
   leave(

@@ -114,6 +114,14 @@ async function broadcastRoomState(roomCode: string): Promise<void> {
   }
 }
 
+function scheduleRoomExpiry(roomCode: string, deadlineAt: string): void {
+  const delay = Math.max(0, Date.parse(deadlineAt) - Date.now()) + 50;
+  setTimeout(() => {
+    const expiredRoom = rooms.expire(roomCode);
+    if (expiredRoom) void broadcastRoomState(expiredRoom.code);
+  }, delay).unref();
+}
+
 app.use(cors({ origin: webOrigin, credentials: true }));
 app.use(express.json());
 
@@ -311,6 +319,7 @@ io.on("connection", (socket) => {
       const catalog = await loadCatalog();
       if (catalog.length === 0) throw new Error("CATALOG_EMPTY");
       const room = rooms.start(identity.roomCode, identity.playerId, catalog);
+      if (room.round) scheduleRoomExpiry(room.code, room.round.deadlineAt);
       await broadcastRoomState(room.code);
       acknowledge({
         ok: true,

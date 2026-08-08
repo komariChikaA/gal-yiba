@@ -3,6 +3,7 @@ import {
   formatComparisonAriaLabel,
   formatComparisonMarker,
   formatComparisonValue,
+  formatCountdown,
   formatGuessStars,
 } from "./comparison-format.js";
 
@@ -42,6 +43,14 @@ describe("formatGuessStars", () => {
   it("renders used guesses as filled stars without exceeding the limit", () => {
     expect(formatGuessStars(3, 8)).toBe("★★★☆☆☆☆☆");
     expect(formatGuessStars(12, 8)).toBe("★★★★★★★★");
+  });
+});
+
+describe("formatCountdown", () => {
+  it("formats remaining seconds and clamps expired values", () => {
+    expect(formatCountdown(300)).toBe("05:00");
+    expect(formatCountdown(29.2)).toBe("00:30");
+    expect(formatCountdown(-1)).toBe("00:00");
   });
 });
 

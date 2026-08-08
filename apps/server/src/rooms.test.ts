@@ -50,6 +50,7 @@ describe("RoomRegistry", () => {
       "platforms",
       "tags",
     ]);
+    expect(created.room.rules.roundTimeSeconds).toBe(300);
   });
 
   it("allows only the host to change enabled comparison fields", () => {
@@ -184,5 +185,27 @@ describe("RoomRegistry", () => {
     expect(remaining?.hostPlayerId).toBe(guest.session.playerId);
     expect(registry.leave(host.room.code, guest.session.playerId)).toBeNull();
     expect(() => registry.get(host.room.code)).toThrow("ROOM_NOT_FOUND");
+  });
+
+  it("automatically expires an active round when its deadline passes", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("单人玩家", "solo", "standard");
+    const started = registry.start(
+      host.room.code,
+      host.session.playerId,
+      [visualNovel("answer")],
+      { now: new Date("2026-08-09T00:00:00.000Z"), random: () => 0 },
+    );
+    expect(
+      registry.expire(host.room.code, new Date("2026-08-09T00:04:59.000Z")),
+    ).toBeNull();
+    const expired = registry.expire(
+      host.room.code,
+      new Date("2026-08-09T00:05:00.000Z"),
+    );
+    expect(expired?.phase).toBe("finished");
+    expect(expired?.winnerPlayerId).toBeNull();
+    expect(expired?.round?.players[0]?.status).toBe("expired");
+    expect(expired?.round?.answer?.id).toBe("answer");
   });
 });

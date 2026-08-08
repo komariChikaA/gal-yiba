@@ -635,11 +635,15 @@ button {
 }
 .game-stage-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: end;
   justify-content: space-between;
   gap: 30px;
   padding-bottom: 26px;
   border-bottom: 2px solid #211b17;
+}
+.game-stage-head > div:first-child {
+  margin-right: auto;
 }
 .game-exit {
   align-self: center;
@@ -671,6 +675,49 @@ button {
 .attempt-counter span {
   color: #746a61;
   font-size: 12px;
+}
+.round-countdown {
+  display: flex;
+  min-width: 112px;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 9px 13px;
+  border: 1px solid var(--line-strong, #d9bf98);
+  border-radius: 14px;
+  background: var(--surface-solid, #fffdf3);
+}
+.round-countdown span {
+  color: var(--muted, #857466);
+  font-size: 10px;
+}
+.round-countdown b {
+  margin-top: 2px;
+  color: var(--mint-strong, #629f6d);
+  font-size: 25px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.round-countdown.urgent {
+  border-color: var(--danger, #e47791);
+  background: color-mix(
+    in srgb,
+    var(--danger, #e47791) 12%,
+    var(--surface-solid, #fffdf3)
+  );
+}
+.round-countdown.urgent b {
+  color: var(--danger, #e47791);
+}
+.timer-settling {
+  margin: 26px 0;
+  padding: 24px;
+  border: 1px dashed var(--line-strong, #d9bf98);
+  border-radius: 16px;
+  color: var(--muted, #857466);
+  background: var(--surface-solid, #fffdf3);
+  text-align: center;
 }
 .game-search {
   position: relative;

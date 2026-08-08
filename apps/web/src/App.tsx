@@ -13,6 +13,7 @@ import {
   formatComparisonAriaLabel,
   formatComparisonMarker,
   formatComparisonValue,
+  formatCountdown,
   formatGuessStars,
 } from "./comparison-format";
 
@@ -144,6 +145,7 @@ interface PublicGameSession {
   status: "active" | "won" | "lost" | "expired";
   rules: GameRules;
   guesses: GuessRecord[];
+  deadlineAt: string;
   attemptsLeft: number;
   answer?: { id: string; title: string };
 }
@@ -205,12 +207,16 @@ export function App() {
   >([]);
   const [includedTagInput, setIncludedTagInput] = useState("");
   const [customTag, setCustomTag] = useState("");
+  const [clockNow, setClockNow] = useState(() => Date.now());
 
   const isHost = room != null && session?.playerId === room.hostPlayerId;
   const currentPlayer = room?.players.find(
     (player) => player.id === session?.playerId,
   );
   const canEnter = nickname.trim().length > 0 && connected;
+  const remainingSeconds = game
+    ? Math.max(0, Math.ceil((Date.parse(game.deadlineAt) - clockNow) / 1000))
+    : 0;
 
   useEffect(() => {
     localStorage.setItem("gal-yiba-color-theme", colorTheme);
@@ -220,6 +226,13 @@ export function App() {
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute("content", colorTheme === "night" ? "#625044" : "#fff7e8");
   }, [colorTheme]);
+
+  useEffect(() => {
+    if (!game || game.status !== "active") return;
+    setClockNow(Date.now());
+    const timer = window.setInterval(() => setClockNow(Date.now()), 250);
+    return () => window.clearInterval(timer);
+  }, [game?.id, game?.status, game?.deadlineAt]);
 
   useEffect(() => {
     void fetch("/api/catalog/fame-tiers")
@@ -917,6 +930,23 @@ export function App() {
                         <option value={2}>2 · 全部标签</option>
                       </select>
                     </label>
+                    <label>
+                      <span>每局时间</span>
+                      <select
+                        value={room.rules.roundTimeSeconds}
+                        disabled={!isHost}
+                        onChange={(event) =>
+                          saveRules({
+                            ...room.rules,
+                            roundTimeSeconds: Number(event.target.value),
+                          })
+                        }
+                      >
+                        <option value={180}>3 分钟</option>
+                        <option value={300}>5 分钟</option>
+                        <option value={600}>10 分钟</option>
+                      </select>
+                    </label>
                   </div>
 
                   <p className="exclude-label">排除标签</p>
@@ -972,37 +1002,51 @@ export function App() {
                 <b>{game.attemptsLeft}</b>
                 <span>剩余猜测</span>
               </div>
+              {game.status === "active" && (
+                <div
+                  className={`round-countdown ${remainingSeconds <= 30 ? "urgent" : ""}`}
+                  role="timer"
+                  aria-live={remainingSeconds <= 30 ? "polite" : "off"}
+                >
+                  <span>剩余时间</span>
+                  <b>{formatCountdown(remainingSeconds)}</b>
+                </div>
+              )}
               <button className="game-exit" onClick={leaveRoom}>
                 退出游戏
               </button>
             </div>
 
             {game.status === "active" ? (
-              <div className="game-search">
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="作品名 / 别名 / 开发会社"
-                />
-                {searchItems.length > 0 && (
-                  <div className="game-suggestions">
-                    {searchItems.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => submitVisualNovel(item)}
-                      >
-                        <b>{item.title}</b>
-                        <span>
-                          {item.match.type === "developer"
-                            ? `会社 · ${item.match.value}`
-                            : item.aliases.slice(0, 2).join(" · ") ||
-                              `标题 · ${item.match.value}`}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              remainingSeconds > 0 ? (
+                <div className="game-search">
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="作品名 / 别名 / 开发会社"
+                  />
+                  {searchItems.length > 0 && (
+                    <div className="game-suggestions">
+                      {searchItems.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => submitVisualNovel(item)}
+                        >
+                          <b>{item.title}</b>
+                          <span>
+                            {item.match.type === "developer"
+                              ? `会社 · ${item.match.value}`
+                              : item.aliases.slice(0, 2).join(" · ") ||
+                                `标题 · ${item.match.value}`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="timer-settling">时间到，正在等待本轮结算……</div>
+              )
             ) : (
               <div className="answer-banner">
                 <span>
