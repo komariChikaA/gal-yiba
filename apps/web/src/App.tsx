@@ -8,8 +8,9 @@ import {
   type GameRules,
 } from "@gal-yiba/shared";
 import {
+  formatComparisonAriaLabel,
+  formatComparisonMarker,
   formatComparisonValue,
-  formatComparisonVerdict,
 } from "./comparison-format";
 
 const socket = io({ autoConnect: true });
@@ -44,16 +45,16 @@ function formatTierRanges(thresholds: readonly number[]): string {
 
 const comparisonRuleNotes = [
   "作品名：有可靠的 VNDB 官方关系且属于同系列时为黄色。",
-  "会社：父子品牌为黄色；命中部分会社时，答案会社更多显示 +，更少显示 −。",
+  "会社：父子品牌为黄色；有会社交集时，答案会社更多显示 +，更少显示 −。",
   "脚本家、女主发色：有交集时为黄色，并用 + / − 表示答案的登记人数或主要女角色发色数更多/更少；VNDB 脚本担当不区分主次。",
   "年份：只采用官方 complete 正式版的最早年份；相差 5 年以内为黄色，并用 ↑ / ↓ 指向答案年份。",
   "时长：相邻一个时长级别为黄色，并显示 ↑ / ↓。",
   "评分：VNDB 与 Bangumi 分开比较，相差不超过 1.0 分为黄色。",
-  `VNDB 热度档：${formatTierRanges(voteTierThresholds.vndbVoteCount)}；同档绿色、相邻档黄色。`,
-  `Bangumi 热度档：${formatTierRanges(voteTierThresholds.bangumiVoteCount)}；同档绿色、相邻档黄色。`,
+  `VNDB 热度档：${formatTierRanges(voteTierThresholds.vndbVoteCount)}；处于同一档为绿色、只差一档为黄色。`,
+  `Bangumi 热度档：${formatTierRanges(voteTierThresholds.bangumiVoteCount)}；处于同一档为绿色、只差一档为黄色。`,
   "动画化：已宣布但尚未播出的作品显示黄色；没有可靠播出状态时不会猜测。",
-  "全年龄：只有一致或不符，不使用黄色；非成人内容的 15+ 发行版按全年龄侧处理。",
-  "平台：有共同平台时为黄色；答案还有更多主要平台时显示 +。标签有部分交集时为黄色。",
+  "全年龄：相同为绿色、不同为灰色，不使用黄色；非成人内容的 15+ 发行版按全年龄侧处理。",
+  "平台：有共同平台时为黄色；答案还有更多主要平台时显示 +。标签有交集时为黄色。",
 ];
 
 interface RoomPlayer {
@@ -830,8 +831,11 @@ export function App() {
                             >
                               {formatComparisonValue(result)}
                             </strong>
-                            <span className="comparison-verdict">
-                              {formatComparisonVerdict(result)}
+                            <span
+                              className="comparison-verdict"
+                              aria-label={formatComparisonAriaLabel(result)}
+                            >
+                              {formatComparisonMarker(result)}
                               {result.direction && (
                                 <i>
                                   {result.direction === "higher" ? "↑" : "↓"}

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatComparisonAriaLabel,
+  formatComparisonMarker,
   formatComparisonValue,
-  formatComparisonVerdict,
 } from "./comparison-format.js";
 
 describe("formatComparisonValue", () => {
@@ -36,34 +37,45 @@ describe("formatComparisonValue", () => {
   });
 });
 
-describe("formatComparisonVerdict", () => {
-  it("shows quantity signs and vote-tier language", () => {
+describe("formatComparisonMarker", () => {
+  it("only shows quantity signs", () => {
     expect(
-      formatComparisonVerdict({
+      formatComparisonMarker({
         key: "scenarioWriter",
         status: "partial",
         hint: "more",
         guessValue: ["A", "B"],
       }),
-    ).toBe("部分 +");
+    ).toBe("+");
     expect(
-      formatComparisonVerdict({
+      formatComparisonMarker({
         key: "vndbVoteCount",
         status: "partial",
         basis: "tier",
         guessValue: 900,
       }),
-    ).toBe("相邻档");
+    ).toBe("");
   });
 
-  it("labels curated company relationships without a sign", () => {
+  it("leaves curated company relationships as plain yellow", () => {
     expect(
-      formatComparisonVerdict({
+      formatComparisonMarker({
         key: "developer",
         status: "partial",
         hint: "same_family",
         guessValue: ["Key"],
       }),
-    ).toBe("关联会社");
+    ).toBe("");
+  });
+
+  it("keeps a non-visible accessibility description", () => {
+    expect(
+      formatComparisonAriaLabel({
+        key: "releaseYear",
+        status: "partial",
+        direction: "higher",
+        guessValue: 2016,
+      }),
+    ).toBe("接近，答案更高");
   });
 });

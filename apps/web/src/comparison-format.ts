@@ -43,18 +43,30 @@ export function formatComparisonValue(result: ComparisonResult): string {
   return enumValueLabels[value] ?? value;
 }
 
-export function formatComparisonVerdict(result: ComparisonResult): string {
-  if (result.status === "unknown") return "未知";
-  if (result.status === "miss") return "不符";
-  if (result.hint === "same_family") return "关联会社";
+export function formatComparisonMarker(result: ComparisonResult): string {
+  return result.hint === "more" ? "+" : result.hint === "fewer" ? "−" : "";
+}
 
-  const base =
-    result.basis === "tier"
-      ? result.status === "exact"
-        ? "同档"
-        : "相邻档"
-      : result.status === "exact"
-        ? "一致"
-        : "部分";
-  return `${base}${result.hint === "more" ? " +" : result.hint === "fewer" ? " −" : ""}`;
+export function formatComparisonAriaLabel(result: ComparisonResult): string {
+  const status = {
+    exact: "匹配",
+    partial: "接近",
+    miss: "未匹配",
+    unknown: "数据未知",
+  }[result.status];
+  const quantity =
+    result.hint === "more"
+      ? "，答案项目更多"
+      : result.hint === "fewer"
+        ? "，答案项目更少"
+        : result.hint === "same_family"
+          ? "，存在会社关系"
+          : "";
+  const direction =
+    result.direction === "higher"
+      ? "，答案更高"
+      : result.direction === "lower"
+        ? "，答案更低"
+        : "";
+  return `${status}${quantity}${direction}`;
 }
