@@ -279,6 +279,7 @@ export function App() {
   const [chatText, setChatText] = useState("");
   const [chatOpen, setChatOpen] = useState(true);
   const chatListRef = useRef<HTMLDivElement | null>(null);
+  const [game, setGame] = useState<PublicGameSession | null>(null);
   const [daily, setDaily] = useState<DailyGame | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchItems, setSearchItems] = useState<SearchItem[]>([]);
