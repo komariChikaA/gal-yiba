@@ -2379,3 +2379,133 @@ button {
   letter-spacing: 0.34em;
   font-weight: 400;
 }
+
+/* ============ 音乐播放器 ============ */
+.music-player {
+  position: fixed;
+  left: 22px;
+  bottom: 22px;
+  z-index: 40;
+}
+.music-fab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-size: 20px;
+  color: var(--ink-strong);
+  background: var(--surface);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 10px 30px var(--shadow);
+}
+.music-fab:hover {
+  transform: scale(1.06);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--coral) 35%, transparent),
+    0 12px 34px color-mix(in srgb, var(--coral) 40%, transparent);
+}
+.music-panel {
+  position: absolute;
+  left: 0;
+  bottom: 64px;
+  width: min(300px, calc(100vw - 44px));
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  padding: 16px 18px;
+  background: var(--surface);
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.35) inset,
+    0 18px 42px var(--shadow-strong);
+}
+.app-shell[data-theme="night"] .music-fab,
+.app-shell[data-theme="night"] .music-panel {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 18px 42px var(--shadow-strong);
+}
+.music-title {
+  margin: 0;
+  color: var(--ink-strong);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.music-artist {
+  margin: 3px 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.music-progress {
+  display: grid;
+  gap: 4px;
+}
+.music-progress input[type="range"],
+.music-volume input[type="range"] {
+  width: 100%;
+  accent-color: var(--coral);
+}
+.music-progress span {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.music-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+.music-controls button {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-size: 13px;
+  color: var(--ink);
+  background: transparent;
+}
+.music-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.music-controls button.music-play {
+  width: 52px;
+  height: 52px;
+  font-size: 15px;
+  border-color: transparent;
+  color: #fff;
+  background: linear-gradient(135deg, var(--coral), var(--mint));
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--coral) 45%, transparent);
+}
+.music-volume {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+}
+.music-volume span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.music-missing {
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.6;
+  margin: 6px 0 0;
+}
+@media (max-width: 640px) {
+  .music-player {
+    left: 14px;
+    bottom: 14px;
+  }
+}

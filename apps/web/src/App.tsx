@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
+import { MusicPlayer } from "./MusicPlayer";
 import {
   defaultComparisonKeys,
   voteTierThresholds,
@@ -1919,6 +1920,7 @@ export function App() {
           </div>
         </div>
       )}
+      <MusicPlayer />
     </div>
   );
 }
