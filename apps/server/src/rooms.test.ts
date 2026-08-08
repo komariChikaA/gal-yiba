@@ -462,8 +462,18 @@ describe("stable player identity and match reports", () => {
     expect(report?.rounds[0]?.winnerPlayerId).toBe(guestId);
     expect(report?.rounds[0]?.answerId).toBe("answer");
     expect(report?.players).toEqual([
-      { playerId: hostId, nickname: "房主", wins: 0 },
-      { playerId: guestId, nickname: "玩家二", wins: 1 },
+      {
+        playerId: hostId,
+        nickname: "房主",
+        wins: 0,
+        featureCode: null,
+      },
+      {
+        playerId: guestId,
+        nickname: "玩家二",
+        wins: 1,
+        featureCode: null,
+      },
     ]);
   });
 

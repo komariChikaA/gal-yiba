@@ -77,8 +77,8 @@ interface MutableRoom extends Omit<RoomSnapshot, "players" | "round" | "scores">
   catalog: VisualNovel[];
   roundHistory: MutableRoundRecord[];
   chat: ChatMessage[];
+  featureCodes: Map<string, string | null>;
 }
-
 export interface MatchRoundReport {
   roundNumber: number;
   answerId: string;
@@ -92,6 +92,7 @@ export interface MatchPlayerReport {
   playerId: string;
   nickname: string;
   wins: number;
+  featureCode: string | null;
 }
 
 export interface MatchReport {
@@ -162,9 +163,7 @@ function snapshot(room: MutableRoom): RoomSnapshot {
             playerId,
             status: game.status,
             guessCount: game.guesses.length,
-            guessStatuses: game.guesses.map(
-              (guess) => guess.titleStatus,
-            ),
+            guessStatuses: game.guesses.map((guess) => guess.titleStatus),
             finishedAt: game.finishedAt,
           })),
         }
@@ -188,6 +187,7 @@ export class RoomRegistry {
     mode: GameMode = "race",
     fameTier: FameTier = "standard",
     playerIdInput?: string,
+    featureCodeInput?: string,
   ): { room: RoomSnapshot; session: PlayerSession } {
     let code = createRoomCode();
     while (this.rooms.has(code)) code = createRoomCode();
@@ -215,6 +215,7 @@ export class RoomRegistry {
       matchWinnerPlayerId: null,
       intermissionDeadlineAt: null,
       scores: new Map([[playerId, 0]]),
+      featureCodes: new Map([[playerId, featureCodeInput?.trim() || null]]),
       catalog: [],
       roundHistory: [],
       chat: [],
@@ -229,6 +230,7 @@ export class RoomRegistry {
     codeInput: string,
     nickname: string,
     playerIdInput?: string,
+    featureCodeInput?: string,
   ): { room: RoomSnapshot; session: PlayerSession } {
     const code = codeInput.trim().toUpperCase();
     const room = this.requireRoom(code);
@@ -246,6 +248,7 @@ export class RoomRegistry {
       connected: true,
     });
     room.scores.set(playerId, 0);
+    room.featureCodes.set(playerId, featureCodeInput?.trim() || null);
     room.revision += 1;
     this.reconnectTokens.set(reconnectToken, { roomCode: code, playerId });
     return { room: snapshot(room), session: { playerId, reconnectToken } };
@@ -538,6 +541,7 @@ export class RoomRegistry {
         playerId,
         nickname: player.nickname,
         wins: room.scores.get(playerId) ?? 0,
+        featureCode: room.featureCodes.get(playerId) ?? null,
       })),
       rounds: room.roundHistory.map((record) => ({
         roundNumber: record.roundNumber,
@@ -585,7 +589,6 @@ export class RoomRegistry {
       (message) => ({ ...message }),
     );
   }
-
   expire(codeInput: string, now = new Date()): RoomSnapshot | null {
     const room = this.rooms.get(codeInput.trim().toUpperCase());
     if (room?.phase !== "active" || !room.round) return null;

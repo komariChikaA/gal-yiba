@@ -660,6 +660,7 @@ export function App() {
         mode: selectedMode,
         fameTier: selectedFameTier,
         playerId,
+        featureCode: featureCode || undefined,
       },
       handleRoomResponse,
     );
@@ -705,6 +706,7 @@ export function App() {
         nickname: nickname.trim(),
         code: joinCode.trim().toUpperCase(),
         playerId,
+        featureCode: featureCode || undefined,
       },
       handleRoomResponse,
     );

@@ -36,11 +36,13 @@ function report(overrides: Partial<MatchReport> = {}): MatchReport {
         playerId: "11111111-1111-4111-8111-111111111111",
         nickname: "房主",
         wins: 1,
+        featureCode: "MYCODE",
       },
       {
         playerId: "22222222-2222-4222-8222-222222222222",
         nickname: "对手",
         wins: 0,
+        featureCode: null,
       },
     ],
     rounds: [
@@ -131,8 +133,13 @@ describe("MatchRecorder", () => {
         roomCode: "AAAAA",
         winnerPlayerId: winner,
         players: [
-          { playerId: winner, nickname: "老名字", wins: 1 },
-          { playerId: "22222222-2222-4222-8222-222222222222", nickname: "乙", wins: 0 },
+          { playerId: winner, nickname: "老名字", wins: 1, featureCode: "WIN" },
+          {
+            playerId: "22222222-2222-4222-8222-222222222222",
+            nickname: "乙",
+            wins: 0,
+            featureCode: null,
+          },
         ],
       }),
     );
@@ -144,8 +151,13 @@ describe("MatchRecorder", () => {
         startedAt: "2026-08-09T00:00:00.000Z",
         finishedAt: "2026-08-09T00:05:00.000Z",
         players: [
-          { playerId: winner, nickname: "新名字", wins: 1 },
-          { playerId: "22222222-2222-4222-8222-222222222222", nickname: "乙", wins: 0 },
+          { playerId: winner, nickname: "新名字", wins: 1, featureCode: "WIN" },
+          {
+            playerId: "22222222-2222-4222-8222-222222222222",
+            nickname: "乙",
+            wins: 0,
+            featureCode: null,
+          },
         ],
       }),
     );
@@ -158,5 +170,23 @@ describe("MatchRecorder", () => {
     });
     const duelOnly = await recorder.leaderboard({ mode: "solo", limit: 10 });
     expect(duelOnly).toEqual([]);
+  });
+
+  it("stores the feature code on the players row", async () => {
+    const recorder = new MatchRecorder(pool);
+    await recorder.record(report());
+    const players = await pool.query(
+      "SELECT player_id, feature_code FROM players ORDER BY feature_code DESC NULLS LAST",
+    );
+    expect(players.rows).toEqual([
+      {
+        player_id: "11111111-1111-4111-8111-111111111111",
+        feature_code: "MYCODE",
+      },
+      {
+        player_id: "22222222-2222-4222-8222-222222222222",
+        feature_code: null,
+      },
+    ]);
   });
 });

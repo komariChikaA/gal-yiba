@@ -55,11 +55,17 @@ export class MatchRecorder {
           ],
         );
         await client.query(
-          `INSERT INTO players (player_id, nickname, updated_at)
-           VALUES ($1, $2, $3)
+          `INSERT INTO players (player_id, nickname, updated_at, feature_code)
+           VALUES ($1, $2, $3, $4)
            ON CONFLICT (player_id)
-           DO UPDATE SET nickname = EXCLUDED.nickname, updated_at = EXCLUDED.updated_at`,
-          [player.playerId, player.nickname, report.finishedAt],
+           DO UPDATE SET nickname = EXCLUDED.nickname, updated_at = EXCLUDED.updated_at,
+                         feature_code = EXCLUDED.feature_code`,
+          [
+            player.playerId,
+            player.nickname,
+            report.finishedAt,
+            player.featureCode,
+          ],
         );
       }
       for (const round of report.rounds) {

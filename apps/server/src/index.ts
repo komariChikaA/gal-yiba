@@ -59,16 +59,19 @@ async function loadCatalog() {
 }
 const nicknameSchema = z.string().trim().min(1).max(20);
 const playerIdSchema = z.string().uuid().optional();
+const featureCodeSchema = z.string().trim().max(20).optional();
 const joinSchema = z.object({
   code: z.string().trim().length(5),
   nickname: nicknameSchema,
   playerId: playerIdSchema,
+  featureCode: featureCodeSchema,
 });
 const createRoomSchema = z.object({
   nickname: nicknameSchema,
   mode: z.enum(["solo", "duel", "race"]),
   fameTier: z.enum(["novice", "standard", "veteran", "master"]),
   playerId: playerIdSchema,
+  featureCode: featureCodeSchema,
 });
 const reconnectSchema = z.object({
   code: z.string().trim().length(5),
@@ -422,6 +425,7 @@ io.on("connection", (socket) => {
         input.mode,
         input.fameTier,
         input.playerId,
+        input.featureCode,
       );
       socket.join(result.room.code);
       bindSocketSession(socket, result.room.code, result.session.playerId);
@@ -512,7 +516,12 @@ io.on("connection", (socket) => {
   socket.on("room:join", (payload: unknown, acknowledge) => {
     try {
       const input = joinSchema.parse(payload);
-      const result = rooms.join(input.code, input.nickname, input.playerId);
+      const result = rooms.join(
+        input.code,
+        input.nickname,
+        input.playerId,
+        input.featureCode,
+      );
       socket.join(result.room.code);
       bindSocketSession(socket, result.room.code, result.session.playerId);
       acknowledge({ ok: true, ...result });
