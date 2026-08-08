@@ -72,18 +72,27 @@ describe("forfeit match recording end-to-end", () => {
     const players = await pool.query(
       "SELECT player_id, nickname, wins, is_winner FROM match_players",
     );
-    console.log("match_players rows:", players.rows);
-    expect(players.rows).toHaveLength(1);
-    expect(players.rows[0]).toEqual({
-      player_id: host.session.playerId,
-      nickname: "房主",
-      wins: 1,
-      is_winner: true,
-    });
+    expect(players.rows).toEqual([
+      {
+        player_id: host.session.playerId,
+        nickname: "房主",
+        wins: 1,
+        is_winner: true,
+      },
+    ]);
 
     const matches = await pool.query(
-      "SELECT room_code, mode, status, winner FROM match_records",
+      "SELECT room_code, mode, status FROM match_records",
     );
-    console.log("match_records rows:", matches.rows);
+    expect(matches.rows).toEqual([
+      { room_code: host.room.code, mode: "duel", status: "finished" },
+    ]);
+
+    const rounds = await pool.query(
+      "SELECT round_number, winner_player_id FROM match_rounds",
+    );
+    expect(rounds.rows).toEqual([
+      { round_number: 1, winner_player_id: host.session.playerId },
+    ]);
   });
 });
