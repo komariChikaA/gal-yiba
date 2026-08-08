@@ -1,8 +1,8 @@
 :root {
   font-family:
     Inter, ui-sans-serif, "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  color: #f4efe7;
-  background: #12100f;
+  color: #dce8f8;
+  background: #0a1526;
   font-synthesis: none;
 }
 
@@ -16,7 +16,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background: #12100f;
+  background: #0a1526;
 }
 button,
 input,
@@ -116,10 +116,10 @@ button {
   left: -330px;
   top: 50px;
   border-radius: 50%;
-  border: 1px solid #42372e;
+  border: 1px solid #2e4466;
   box-shadow:
-    0 0 0 80px #171310,
-    0 0 0 81px #312923;
+    0 0 0 80px rgba(15, 28, 51, 0.6),
+    0 0 0 81px #24395c;
   pointer-events: none;
 }
 .hero-copy {
@@ -1073,53 +1073,54 @@ footer b {
 }
 
 body {
-  background: #fff7e8;
+  background: #eef5fd;
 }
 
 .app-shell {
-  --page: #fff7e8;
-  --page-alt: #f1f6dc;
-  --surface: rgba(255, 253, 242, 0.9);
-  --surface-solid: #fffdf3;
-  --panel: #fff9e8;
-  --ink: #5c4b3f;
-  --ink-strong: #40362f;
-  --muted: #857466;
-  --line: #ead9ba;
-  --line-strong: #d9bf98;
-  --coral: #f49a62;
-  --coral-strong: #df6f45;
-  --coral-soft: #ffe2c4;
-  --mint: #8fc58b;
-  --mint-strong: #629f6d;
-  --mint-soft: #e0f1d5;
-  --honey: #d5b86a;
-  --shadow: rgba(142, 108, 71, 0.18);
-  --shadow-strong: rgba(121, 88, 56, 0.25);
+  /* 日间：天空蓝为核心，冰晶白 + 淡紫，玻璃拟态 */
+  --page: #e3f2fc;
+  --page-alt: #f3f8ff;
+  --surface: rgba(255, 255, 255, 0.62);
+  --surface-solid: #f8fbff;
+  --panel: #eef4ff;
+  --ink: #42536e;
+  --ink-strong: #22314f;
+  --muted: #7d8ca8;
+  --line: #d9e7f6;
+  --line-strong: #bcd4ee;
+  --coral: #78c8f8;
+  --coral-strong: #3d9be0;
+  --coral-soft: #d9efff;
+  --mint: #c9c4f7;
+  --mint-strong: #8f86dd;
+  --mint-soft: #ecebff;
+  --honey: #a7c8f2;
+  --shadow: rgba(120, 160, 210, 0.22);
+  --shadow-strong: rgba(90, 130, 195, 0.32);
   --success: #83d5b0;
   --success-ink: #285f4a;
   --warning: #f7d978;
   --warning-ink: #715b22;
-  --neutral: #e6e2ee;
+  --neutral: #e3ecf7;
   --danger: #e47791;
   color: var(--ink);
   background:
     radial-gradient(
       circle at 9% 13%,
-      rgba(244, 154, 98, 0.25) 0 8%,
+      rgba(120, 200, 248, 0.3) 0 8%,
       transparent 23%
     ),
     radial-gradient(
       circle at 91% 8%,
-      rgba(143, 197, 139, 0.26) 0 9%,
+      rgba(201, 196, 247, 0.34) 0 9%,
       transparent 24%
     ),
     radial-gradient(
       circle at 72% 74%,
-      rgba(226, 191, 91, 0.18) 0 8%,
+      rgba(167, 200, 242, 0.24) 0 8%,
       transparent 25%
     ),
-    linear-gradient(145deg, var(--page) 0%, var(--page-alt) 52%, #fff1d6 100%);
+    linear-gradient(150deg, #dceefc 0%, #f3f8ff 52%, #eef2ff 100%);
   font-family:
     "Yu Gothic UI", "Noto Sans SC", "Microsoft YaHei", ui-rounded, sans-serif;
   transition:
@@ -1128,40 +1129,72 @@ body {
 }
 
 .app-shell[data-theme="night"] {
-  --page: #625044;
-  --page-alt: #4f6048;
-  --surface: rgba(104, 86, 72, 0.92);
-  --surface-solid: #705c4d;
-  --panel: #6a5749;
-  --ink: #fff1d3;
-  --ink-strong: #fff8e7;
-  --muted: #dac8ae;
-  --line: #927b64;
-  --line-strong: #ad9270;
-  --coral: #ffad68;
-  --coral-strong: #ffc27e;
-  --coral-soft: #785942;
-  --mint: #a6d19a;
-  --mint-strong: #c3e0ad;
-  --mint-soft: #536b4e;
-  --honey: #e4c36f;
-  --shadow: rgba(61, 47, 38, 0.3);
-  --shadow-strong: rgba(52, 42, 34, 0.4);
-  --neutral: #8a7768;
+  /* 夜间：月夜银河幻想 — 深邃星空蓝 + 月光银白 + 星辰蓝/极光青/星云紫 */
+  --page: #07152f;
+  --page-alt: #102b5c;
+  --surface: rgba(8, 21, 47, 0.72);
+  --surface-solid: #0d2147;
+  --panel: #0e2550;
+  --ink: #b7cbe8;
+  --ink-strong: #eaf3ff;
+  --muted: #8ba3c8;
+  --line: rgba(180, 220, 255, 0.16);
+  --line-strong: rgba(180, 220, 255, 0.3);
+  --coral: #4c9aff;
+  --coral-strong: #7db8ff;
+  --coral-soft: #16315e;
+  --mint: #62dfff;
+  --mint-strong: #a4ecff;
+  --mint-soft: #0f3a52;
+  --honey: #7568c8;
+  --shadow: rgba(76, 154, 255, 0.16);
+  --shadow-strong: rgba(76, 154, 255, 0.26);
+  --neutral: #16294d;
   --success-ink: #244f41;
   --warning-ink: #65511f;
+  --danger: #ff7a9c;
   background:
     radial-gradient(
       circle at 12% 10%,
-      rgba(255, 173, 104, 0.2) 0 8%,
+      rgba(76, 154, 255, 0.22) 0 8%,
       transparent 24%
     ),
     radial-gradient(
       circle at 88% 14%,
-      rgba(166, 209, 154, 0.2) 0 10%,
+      rgba(98, 223, 255, 0.16) 0 10%,
       transparent 26%
     ),
-    linear-gradient(145deg, var(--page) 0%, var(--page-alt) 58%, #5e5543 100%);
+    radial-gradient(
+      circle at 68% 78%,
+      rgba(117, 104, 200, 0.2) 0 10%,
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 24% 34%,
+      rgba(234, 243, 255, 0.55) 0 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 71% 21%,
+      rgba(183, 203, 232, 0.45) 0 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 41% 64%,
+      rgba(234, 243, 255, 0.4) 0 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 86% 56%,
+      rgba(184, 168, 255, 0.5) 0 1px,
+      transparent 2px
+    ),
+    radial-gradient(
+      circle at 13% 82%,
+      rgba(98, 223, 255, 0.4) 0 1px,
+      transparent 2px
+    ),
+    linear-gradient(145deg, #07152f 0%, #102b5c 58%, #1b3f7a 100%);
 }
 
 .site-header {
@@ -1609,12 +1642,6 @@ footer b {
 .app-shell[data-theme="night"] .room-card,
 .app-shell[data-theme="night"] .site-header {
   box-shadow: 0 18px 42px var(--shadow-strong);
-}
-.app-shell[data-theme="night"] .guess-history article header.title-partial,
-.app-shell[data-theme="night"] .guess-history article > div > span.partial,
-.app-shell[data-theme="night"] .guess-history article header.title-exact,
-.app-shell[data-theme="night"] .guess-history article > div > span.exact {
-  color: #40362f;
 }
 
 @media (max-width: 980px) {
