@@ -1,4 +1,4 @@
-# 系统架构（草案）
+# 系统架构
 
 ```text
 React Web
@@ -7,10 +7,10 @@ Node API / Realtime Server
   |-- game engine (pure shared rules)
   |-- room state machine
   |-- catalog/search API
-  |-- sync jobs and admin API
+  |-- sync jobs and command-line mapping review
   |
   |-- PostgreSQL: canonical catalog, source records, mappings, matches
-  `-- Redis: rooms, presence, timers, locks, reconnect tokens
+  `-- Redis: 已部署的后续扩容预留，目前未接入房间状态
 
 VNDB API ----> source adapter ----> normalization/mapping queue
 Bangumi API -> source adapter ----> normalization/mapping queue
@@ -32,7 +32,9 @@ lobby -> countdown -> active -> round_result -> active / finished
   `----------+-----------+ (允许在重连窗口内恢复)
 ```
 
-生产环境使用 Redis 锁保证同一房间事件串行化，Socket.IO Redis Adapter 支持多实例广播。PostgreSQL 只写持久战绩，不承担高频房间状态。
+当前生产环境是单应用实例：`RoomRegistry` 在进程内保存房间、在线状态、计时与重连令牌，Socket.IO 负责同实例广播；PostgreSQL 持久化题库，Redis 容器虽已部署但尚未接入业务。因此当前版本支持一台服务器上的在线房间对战，但不能水平扩展应用实例，应用进程重启也不会恢复未完成房间。
+
+后续如需多实例扩容，再将房间快照、在线状态与重连令牌迁移到 Redis，引入按房间串行化的锁和 Socket.IO Redis Adapter；在这些代码与恢复测试完成前，不宣称已经具备分布式房间能力。
 
 ## 参考项目使用原则
 

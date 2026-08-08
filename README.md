@@ -8,6 +8,7 @@
 - [系统架构](docs/ARCHITECTURE.md)
 - [数据来源与许可](docs/DATA_SOURCES.md)
 - [服务器部署](docs/DEPLOYMENT.md)
+- [第一阶段验收](docs/ACCEPTANCE.md)
 
 ## 已实现
 
