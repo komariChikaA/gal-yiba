@@ -70,3 +70,12 @@ export function formatComparisonAriaLabel(result: ComparisonResult): string {
         : "";
   return `${status}${quantity}${direction}`;
 }
+
+export function formatGuessStars(
+  guessCount: number,
+  maxGuesses: number,
+): string {
+  const safeMax = Math.max(0, maxGuesses);
+  const used = Math.min(Math.max(0, guessCount), safeMax);
+  return `${"★".repeat(used)}${"☆".repeat(safeMax - used)}`;
+}

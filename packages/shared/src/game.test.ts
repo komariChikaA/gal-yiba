@@ -20,6 +20,7 @@ const rules: GameRules = {
     tagMode: "all",
     allAgesOnly: false,
     maxTagSpoilerLevel: 0,
+    fameTier: "novice",
   },
 };
 
@@ -69,6 +70,26 @@ describe("filterAnswerPool", () => {
         pool: { ...rules.pool, allAgesOnly: true },
       }).map((item) => item.id),
     ).toEqual(["valid"]);
+  });
+
+  it("divides works into newcomer, standard and veteran pools by vote reach", () => {
+    const catalog = [
+      visualNovel("novice", { vndbVoteCount: 1000, bangumiVoteCount: null }),
+      visualNovel("standard", { vndbVoteCount: 250, bangumiVoteCount: null }),
+      visualNovel("veteran", { vndbVoteCount: 249, bangumiVoteCount: 299 }),
+      visualNovel("bangumi-known", {
+        vndbVoteCount: 10,
+        bangumiVoteCount: 3000,
+      }),
+    ];
+    const idsFor = (fameTier: GameRules["pool"]["fameTier"]) =>
+      filterAnswerPool(catalog, {
+        ...rules,
+        pool: { ...rules.pool, fameTier },
+      }).map((item) => item.id);
+    expect(idsFor("novice")).toEqual(["novice", "bangumi-known"]);
+    expect(idsFor("standard")).toEqual(["standard"]);
+    expect(idsFor("veteran")).toEqual(["veteran"]);
   });
 
   it("filters and compares tags at the configured spoiler level", () => {

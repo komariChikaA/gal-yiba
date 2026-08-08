@@ -8,6 +8,7 @@
     "dev": "vite",
     "smoke:socket": "node scripts/smoke-socket.mjs",
     "smoke:game": "node scripts/smoke-game.mjs",
+    "smoke:modes": "node scripts/smoke-modes.mjs",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run --passWithNoTests"
   },

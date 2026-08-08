@@ -3,6 +3,7 @@ import {
   formatComparisonAriaLabel,
   formatComparisonMarker,
   formatComparisonValue,
+  formatGuessStars,
 } from "./comparison-format.js";
 
 describe("formatComparisonValue", () => {
@@ -34,6 +35,13 @@ describe("formatComparisonValue", () => {
         guessValue: null,
       }),
     ).toBe("数据未知");
+  });
+});
+
+describe("formatGuessStars", () => {
+  it("renders used guesses as filled stars without exceeding the limit", () => {
+    expect(formatGuessStars(3, 8)).toBe("★★★☆☆☆☆☆");
+    expect(formatGuessStars(12, 8)).toBe("★★★★★★★★");
   });
 });
 

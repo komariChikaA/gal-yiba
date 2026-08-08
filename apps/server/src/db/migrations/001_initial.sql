@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS sync_runs (
 CREATE TABLE IF NOT EXISTS match_records (
   id uuid PRIMARY KEY,
   room_code text,
-  mode text NOT NULL CHECK (mode IN ('solo', 'daily', 'race')),
+  mode text NOT NULL CHECK (mode IN ('solo', 'duel', 'race')),
   rules_snapshot jsonb NOT NULL,
   status text NOT NULL CHECK (status IN ('active', 'finished', 'abandoned')),
   started_at timestamptz NOT NULL DEFAULT now(),
@@ -89,4 +89,3 @@ CREATE TABLE IF NOT EXISTS guesses (
   guessed_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (round_id, player_id, guess_number)
 );
-

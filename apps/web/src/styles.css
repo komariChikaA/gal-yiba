@@ -187,6 +187,55 @@ button {
   gap: 12px;
   margin-top: 14px;
 }
+.entry-section {
+  margin-top: 18px;
+}
+.entry-section > span,
+.fame-rule-picker > small {
+  display: block;
+  color: #9d948b;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.mode-picker,
+.fame-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.mode-picker button,
+.fame-picker button {
+  min-height: 62px;
+  border: 1px solid #554b43;
+  background: transparent;
+  color: #e9e1d8;
+  padding: 9px;
+  text-align: left;
+}
+.mode-picker button.selected,
+.fame-picker button.selected {
+  border-color: #ff7442;
+  background: #2d211b;
+  box-shadow: inset 0 -3px #ff7442;
+}
+.mode-picker b,
+.mode-picker small,
+.fame-picker b,
+.fame-picker small {
+  display: block;
+}
+.mode-picker small,
+.fame-picker small {
+  margin-top: 5px;
+  color: #948a81;
+  font-size: 9px;
+  line-height: 1.35;
+}
+.tier-description {
+  margin: 8px 0 0;
+  color: #8f857c;
+  font-size: 10px;
+}
 .entry-actions button {
   min-height: 48px;
   border: 1px solid #554b43;
@@ -298,6 +347,11 @@ button {
   background: #ff7442;
   color: #17110e;
 }
+.lobby-actions .leave-button {
+  margin-left: auto;
+  border-color: #766b62;
+  color: #9e9389;
+}
 .lobby-actions .room-note {
   margin: 0;
 }
@@ -399,6 +453,26 @@ button {
   margin-top: 28px;
   padding-top: 24px;
   border-top: 2px solid #211b17;
+}
+.fame-rule-picker {
+  margin-bottom: 24px;
+}
+.fame-rule-picker > small {
+  color: #80746a;
+}
+.fame-rule-picker .fame-picker button {
+  color: #4d453e;
+  border-color: #b9aea2;
+}
+.fame-rule-picker .fame-picker button.selected {
+  color: #f6ede1;
+  background: #211c18;
+  border-color: #211c18;
+}
+.fame-rule-picker p {
+  margin: 8px 0 0;
+  color: #756b62;
+  font-size: 10px;
 }
 .pool-builder-head {
   display: flex;
@@ -567,6 +641,13 @@ button {
   padding-bottom: 26px;
   border-bottom: 2px solid #211b17;
 }
+.game-exit {
+  align-self: center;
+  border: 1px solid #766b62;
+  background: transparent;
+  color: #665d55;
+  padding: 10px 14px;
+}
 .game-stage-head .eyebrow {
   margin-bottom: 12px;
   color: #e9572b;
@@ -681,6 +762,54 @@ button {
   font-size: 10px;
   font-style: normal;
   text-transform: uppercase;
+}
+.duel-progress {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 22px 0;
+}
+.duel-progress > div {
+  min-width: 0;
+  border: 2px solid #2a2420;
+  padding: 16px;
+}
+.duel-progress .self {
+  text-align: left;
+  box-shadow: -6px 6px 0 #ff7442;
+}
+.duel-progress .opponent {
+  text-align: right;
+  box-shadow: 6px 6px 0 #2a2420;
+}
+.duel-progress small,
+.duel-progress span,
+.duel-progress b,
+.duel-progress i {
+  display: block;
+}
+.duel-progress small {
+  color: #7f756c;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+.duel-progress span {
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 800;
+}
+.duel-progress b {
+  margin-top: 12px;
+  color: #e9572b;
+  font-size: clamp(13px, 2vw, 22px);
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+.duel-progress i {
+  margin-top: 6px;
+  color: #7f756c;
+  font-size: 10px;
+  font-style: normal;
 }
 .guess-history {
   margin-top: 24px;
@@ -903,6 +1032,15 @@ footer b {
   }
   .entry-actions {
     grid-template-columns: 1fr;
+  }
+  .mode-picker,
+  .fame-picker,
+  .duel-progress {
+    grid-template-columns: 1fr;
+  }
+  .duel-progress .opponent {
+    text-align: left;
+    box-shadow: -6px 6px 0 #2a2420;
   }
   .comparison-grid {
     grid-template-columns: 1fr;

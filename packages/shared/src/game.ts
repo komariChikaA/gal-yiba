@@ -1,6 +1,34 @@
 import { compareGuess, compareTitle } from "./comparison.js";
 import { selectImportantTags } from "./catalog.js";
-import type { ComparisonResult, GameRules, VisualNovel } from "./domain.js";
+import type {
+  ComparisonResult,
+  FameTier,
+  GameRules,
+  VisualNovel,
+} from "./domain.js";
+
+export const fameTierThresholds = {
+  novice: { vndbVoteCount: 1000, bangumiVoteCount: 3000 },
+  standard: { vndbVoteCount: 250, bangumiVoteCount: 300 },
+} as const;
+
+export function fameTierForVisualNovel(visualNovel: VisualNovel): FameTier {
+  const vndbVotes = visualNovel.vndbVoteCount ?? 0;
+  const bangumiVotes = visualNovel.bangumiVoteCount ?? 0;
+  if (
+    vndbVotes >= fameTierThresholds.novice.vndbVoteCount ||
+    bangumiVotes >= fameTierThresholds.novice.bangumiVoteCount
+  ) {
+    return "novice";
+  }
+  if (
+    vndbVotes >= fameTierThresholds.standard.vndbVoteCount ||
+    bangumiVotes >= fameTierThresholds.standard.bangumiVoteCount
+  ) {
+    return "standard";
+  }
+  return "veteran";
+}
 
 export interface GuessRecord {
   guessNumber: number;
@@ -90,7 +118,10 @@ export function filterAnswerPool(
 
   return catalog
     .filter((visualNovel) => {
-      return !rules.pool.allAgesOnly || visualNovel.ageRating === "all_ages";
+      return (
+        fameTierForVisualNovel(visualNovel) === rules.pool.fameTier &&
+        (!rules.pool.allAgesOnly || visualNovel.ageRating === "all_ages")
+      );
     })
     .map((visualNovel) => visualNovelForRules(visualNovel, rules))
     .filter((visualNovel) => {
