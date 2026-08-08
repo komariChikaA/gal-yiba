@@ -321,7 +321,10 @@ export function App() {
       colorTheme === "night" ? "dark" : "light";
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", colorTheme === "night" ? "#07152f" : "#dceefc");
+      ?.setAttribute(
+        "content",
+        colorTheme === "night" ? "#08152f" : "#dceefc",
+      );
   }, [colorTheme]);
 
   useEffect(() => {

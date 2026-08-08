@@ -1098,124 +1098,132 @@ body {
 }
 
 .app-shell {
-  /* 日间：天空蓝为核心，冰晶白 + 淡紫，玻璃拟态 */
-  --page: #e3f2fc;
-  --page-alt: #f3f8ff;
-  --surface: rgba(255, 255, 255, 0.62);
+  /* 日间：清澈天空 · 水面反射 · 夏日校园 */
+  --page: #78c8f8;
+  --page-alt: #b8e5ff;
+  --surface: rgba(248, 251, 255, 0.65);
   --surface-solid: #f8fbff;
-  --panel: #eef4ff;
-  --ink: #42536e;
-  --ink-strong: #22314f;
-  --muted: #7d8ca8;
-  --line: #d9e7f6;
-  --line-strong: #bcd4ee;
-  --coral: #78c8f8;
-  --coral-strong: #3d9be0;
-  --coral-soft: #d9efff;
-  --mint: #c9c4f7;
-  --mint-strong: #8f86dd;
-  --mint-soft: #ecebff;
-  --honey: #a7c8f2;
-  --shadow: rgba(120, 160, 210, 0.22);
-  --shadow-strong: rgba(90, 130, 195, 0.32);
-  --success: #83d5b0;
-  --success-ink: #285f4a;
-  --warning: #f7d978;
-  --warning-ink: #715b22;
-  --neutral: #e3ecf7;
-  --danger: #e47791;
+  --panel: #eef6ff;
+  --ink: #6b829a;
+  --ink-strong: #243b5a;
+  --muted: #7d94b0;
+  --line: rgba(62, 142, 219, 0.14);
+  --line-strong: rgba(62, 142, 219, 0.3);
+  --coral: #3e8edb;
+  --coral-strong: #2b6cb3;
+  --coral-soft: #e1f2ff;
+  --mint: #5ad7ff;
+  --mint-strong: #2ba8e0;
+  --mint-soft: #e4f8ff;
+  --honey: #c9c4f7;
+  --pink: #f6b8d6;
+  --shadow: rgba(62, 142, 219, 0.15);
+  --shadow-strong: rgba(62, 142, 219, 0.24);
+  --success: #6fc9a0;
+  --success-ink: #1f5c44;
+  --warning: #f6c96e;
+  --warning-ink: #6d5216;
+  --neutral: #e3eefb;
+  --danger: #e46f96;
   color: var(--ink);
   background:
     radial-gradient(
-      circle at 9% 13%,
-      rgba(120, 200, 248, 0.3) 0 8%,
-      transparent 23%
+      ellipse 90% 60% at 18% 12%,
+      rgba(90, 215, 255, 0.4) 0%,
+      transparent 62%
     ),
     radial-gradient(
-      circle at 91% 8%,
-      rgba(201, 196, 247, 0.34) 0 9%,
-      transparent 24%
+      ellipse 70% 55% at 86% 22%,
+      rgba(201, 196, 247, 0.38) 0%,
+      transparent 60%
     ),
     radial-gradient(
-      circle at 72% 74%,
-      rgba(167, 200, 242, 0.24) 0 8%,
-      transparent 25%
+      ellipse 60% 45% at 64% 96%,
+      rgba(246, 184, 214, 0.22) 0%,
+      transparent 62%
     ),
-    linear-gradient(150deg, #dceefc 0%, #f3f8ff 52%, #eef2ff 100%);
+    linear-gradient(180deg, #78c8f8 0%, #b8e5ff 46%, #f8fbff 100%);
   font-family:
     "Yu Gothic UI", "Noto Sans SC", "Microsoft YaHei", ui-rounded, sans-serif;
   transition:
-    background 220ms ease,
-    color 220ms ease;
+    background 260ms ease,
+    color 260ms ease;
 }
 
 .app-shell[data-theme="night"] {
-  /* 夜间：月夜银河幻想 — 深邃星空蓝 + 月光银白 + 星辰蓝/极光青/星云紫 */
-  --page: #07152f;
-  --page-alt: #102b5c;
+  /* 夜间：月夜银河 · 星空列车 · 深蓝幻想 */
+  --page: #08152f;
+  --page-alt: #101f4a;
   --surface: rgba(8, 21, 47, 0.72);
-  --surface-solid: #0d2147;
-  --panel: #0e2550;
-  --ink: #b7cbe8;
+  --surface-solid: #0d1d42;
+  --panel: #122650;
+  --ink: #b8c9e8;
   --ink-strong: #eaf3ff;
-  --muted: #8ba3c8;
-  --line: rgba(180, 220, 255, 0.16);
+  --muted: #8fa3c9;
+  --line: rgba(180, 220, 255, 0.14);
   --line-strong: rgba(180, 220, 255, 0.3);
-  --coral: #4c9aff;
-  --coral-strong: #7db8ff;
-  --coral-soft: #16315e;
+  --coral: #5ca9ff;
+  --coral-strong: #8cc2ff;
+  --coral-soft: #18305f;
   --mint: #62dfff;
   --mint-strong: #a4ecff;
-  --mint-soft: #0f3a52;
+  --mint-soft: #103a55;
   --honey: #7568c8;
-  --shadow: rgba(76, 154, 255, 0.16);
-  --shadow-strong: rgba(76, 154, 255, 0.26);
-  --neutral: #16294d;
-  --success-ink: #244f41;
-  --warning-ink: #65511f;
+  --pink: #b8a8ff;
+  --shadow: rgba(0, 0, 0, 0.35);
+  --shadow-strong: rgba(0, 0, 0, 0.5);
+  --neutral: #152a52;
+  --success-ink: #8fd8bd;
+  --warning-ink: #f2d98a;
   --danger: #ff7a9c;
   background:
     radial-gradient(
-      circle at 12% 10%,
-      rgba(76, 154, 255, 0.22) 0 8%,
-      transparent 24%
+      ellipse 26% 26% at 82% 12%,
+      rgba(234, 243, 255, 0.5) 0%,
+      rgba(234, 243, 255, 0.16) 40%,
+      transparent 72%
     ),
     radial-gradient(
-      circle at 88% 14%,
-      rgba(98, 223, 255, 0.16) 0 10%,
-      transparent 26%
+      ellipse 80% 55% at 24% 18%,
+      rgba(92, 169, 255, 0.2) 0%,
+      transparent 62%
     ),
     radial-gradient(
-      circle at 68% 78%,
-      rgba(117, 104, 200, 0.2) 0 10%,
-      transparent 28%
+      ellipse 70% 60% at 76% 70%,
+      rgba(117, 104, 200, 0.24) 0%,
+      transparent 64%
     ),
     radial-gradient(
-      circle at 24% 34%,
-      rgba(234, 243, 255, 0.55) 0 1px,
-      transparent 2px
+      ellipse 55% 45% at 20% 82%,
+      rgba(98, 223, 255, 0.14) 0%,
+      transparent 62%
     ),
     radial-gradient(
-      circle at 71% 21%,
-      rgba(183, 203, 232, 0.45) 0 1px,
-      transparent 2px
+      circle 1.5px at 18% 30%,
+      rgba(234, 243, 255, 0.7) 0 1.5px,
+      transparent 2.5px
     ),
     radial-gradient(
-      circle at 41% 64%,
-      rgba(234, 243, 255, 0.4) 0 1px,
-      transparent 2px
+      circle 1.5px at 68% 16%,
+      rgba(184, 168, 255, 0.6) 0 1.5px,
+      transparent 2.5px
     ),
     radial-gradient(
-      circle at 86% 56%,
-      rgba(184, 168, 255, 0.5) 0 1px,
-      transparent 2px
+      circle 1.5px at 42% 58%,
+      rgba(234, 243, 255, 0.5) 0 1.5px,
+      transparent 2.5px
     ),
     radial-gradient(
-      circle at 13% 82%,
-      rgba(98, 223, 255, 0.4) 0 1px,
-      transparent 2px
+      circle 1.5px at 88% 66%,
+      rgba(98, 223, 255, 0.55) 0 1.5px,
+      transparent 2.5px
     ),
-    linear-gradient(145deg, #07152f 0%, #102b5c 58%, #1b3f7a 100%);
+    radial-gradient(
+      circle 1.5px at 10% 76%,
+      rgba(184, 168, 255, 0.5) 0 1.5px,
+      transparent 2.5px
+    ),
+    linear-gradient(150deg, #08152f 0%, #101f4a 56%, #182b62 100%);
 }
 
 .site-header {
@@ -2105,4 +2113,269 @@ footer b {
   font-size: 22px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
+}
+
+/* ============ 视觉小说风背景层（动画） ============ */
+.app-shell > header,
+.app-shell > main,
+.app-shell > footer {
+  position: relative;
+  z-index: 1;
+}
+
+.app-shell::before,
+.app-shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* 日间：柔和云层缓慢漂移 + 漂浮光点 */
+.app-shell::before {
+  background-image:
+    radial-gradient(
+      ellipse 46% 20% at 24% 30%,
+      rgba(255, 255, 255, 0.7) 0%,
+      transparent 68%
+    ),
+    radial-gradient(
+      ellipse 38% 16% at 62% 46%,
+      rgba(255, 255, 255, 0.6) 0%,
+      transparent 68%
+    ),
+    radial-gradient(
+      ellipse 44% 18% at 82% 22%,
+      rgba(255, 255, 255, 0.65) 0%,
+      transparent 68%
+    ),
+    radial-gradient(
+      ellipse 30% 12% at 8% 72%,
+      rgba(255, 255, 255, 0.45) 0%,
+      transparent 70%
+    );
+  animation: cloud-drift 90s ease-in-out infinite alternate;
+}
+.app-shell::after {
+  background-image:
+    radial-gradient(
+      circle 3px at 22% 64%,
+      rgba(255, 255, 255, 0.9) 0 3px,
+      transparent 5px
+    ),
+    radial-gradient(
+      circle 2px at 66% 78%,
+      rgba(90, 215, 255, 0.9) 0 2px,
+      transparent 4px
+    ),
+    radial-gradient(
+      circle 2.5px at 86% 56%,
+      rgba(246, 184, 214, 0.85) 0 2.5px,
+      transparent 4.5px
+    ),
+    radial-gradient(
+      circle 2px at 40% 86%,
+      rgba(255, 255, 255, 0.75) 0 2px,
+      transparent 4px
+    );
+  animation: light-float 26s ease-in-out infinite alternate;
+}
+
+/* 夜间：星尘闪烁 + 月光呼吸 */
+.app-shell[data-theme="night"]::before {
+  background-image:
+    radial-gradient(
+      circle 1.5px at 12% 24%,
+      rgba(234, 243, 255, 0.85) 0 1.5px,
+      transparent 2.5px
+    ),
+    radial-gradient(
+      circle 1.5px at 33% 12%,
+      rgba(184, 168, 255, 0.8) 0 1.5px,
+      transparent 2.5px
+    ),
+    radial-gradient(
+      circle 1.5px at 56% 30%,
+      rgba(234, 243, 255, 0.7) 0 1.5px,
+      transparent 2.5px
+    ),
+    radial-gradient(
+      circle 1.5px at 74% 48%,
+      rgba(98, 223, 255, 0.75) 0 1.5px,
+      transparent 2.5px
+    ),
+    radial-gradient(
+      circle 1.5px at 91% 24%,
+      rgba(234, 243, 255, 0.8) 0 1.5px,
+      transparent 2.5px
+    ),
+    radial-gradient(
+      circle 1.5px at 26% 82%,
+      rgba(184, 168, 255, 0.7) 0 1.5px,
+      transparent 2.5px
+    ),
+    radial-gradient(
+      circle 1.5px at 66% 88%,
+      rgba(234, 243, 255, 0.6) 0 1.5px,
+      transparent 2.5px
+    );
+  animation: star-twinkle 7s ease-in-out infinite alternate;
+}
+.app-shell[data-theme="night"]::after {
+  background-image:
+    radial-gradient(
+      ellipse 30% 18% at 82% 10%,
+      rgba(234, 243, 255, 0.22) 0%,
+      transparent 70%
+    );
+  animation: moon-breathe 9s ease-in-out infinite;
+}
+
+@keyframes cloud-drift {
+  from {
+    background-position:
+      0% 0%,
+      0% 0%,
+      0% 0%,
+      0% 0%;
+  }
+  to {
+    background-position:
+      10% 3%,
+      -8% 5%,
+      6% -2%,
+      -4% 2%;
+  }
+}
+@keyframes light-float {
+  from {
+    background-position:
+      0% 0%,
+      0% 0%,
+      0% 0%,
+      0% 0%;
+  }
+  to {
+    background-position:
+      6% -18%,
+      -8% -22%,
+      10% -14%,
+      -6% -20%;
+  }
+}
+@keyframes star-twinkle {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes moon-breathe {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell::before,
+  .app-shell::after {
+    animation: none;
+  }
+}
+
+/* ============ 玻璃拟态升级 ============ */
+.entry-card,
+.room-card,
+.leaderboard-panel,
+.admin-panel,
+.rule-builder,
+.game-stage,
+.game-suggestions {
+  backdrop-filter: blur(16px) saturate(1.25);
+  -webkit-backdrop-filter: blur(16px) saturate(1.25);
+}
+.entry-card,
+.room-card,
+.leaderboard-panel,
+.admin-panel {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.5) inset,
+    0 18px 42px var(--shadow);
+}
+.app-shell[data-theme="night"] .entry-card,
+.app-shell[data-theme="night"] .room-card,
+.app-shell[data-theme="night"] .leaderboard-panel,
+.app-shell[data-theme="night"] .admin-panel {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 18px 42px var(--shadow-strong);
+}
+
+/* ============ Galgame 菜单按钮 ============ */
+button {
+  transition:
+    transform 300ms ease,
+    box-shadow 300ms ease,
+    border-color 300ms ease,
+    background 300ms ease,
+    color 300ms ease;
+}
+.entry-actions button:not(:disabled):hover,
+.lobby-actions button:not(:disabled):hover,
+.mode-picker button:not(.selected):hover,
+.fame-picker button:not(.selected):hover,
+.intermission-bar button:hover,
+.admin-actions button:hover,
+.admin-toolbar button:hover,
+.rematch-button:hover,
+.daily-button:hover,
+.leaderboard-filters button:not(.active):hover {
+  transform: scale(1.03);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--coral) 35%, transparent),
+    0 10px 30px color-mix(in srgb, var(--coral) 40%, transparent);
+}
+.app-shell[data-theme="night"] .entry-actions button:not(:disabled):hover,
+.app-shell[data-theme="night"] .lobby-actions button:not(:disabled):hover,
+.app-shell[data-theme="night"] .mode-picker button:not(.selected):hover,
+.app-shell[data-theme="night"] .fame-picker button:not(.selected):hover,
+.app-shell[data-theme="night"] .intermission-bar button:hover,
+.app-shell[data-theme="night"] .admin-actions button:hover,
+.app-shell[data-theme="night"] .admin-toolbar button:hover,
+.app-shell[data-theme="night"] .rematch-button:hover,
+.app-shell[data-theme="night"] .daily-button:hover,
+.app-shell[data-theme="night"] .leaderboard-filters button:not(.active):hover {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--mint) 35%, transparent),
+    0 10px 34px color-mix(in srgb, var(--mint) 35%, transparent);
+}
+
+/* ============ 标题排版（视觉小说 Logo 感） ============ */
+.hero h1 {
+  font-weight: 200;
+  letter-spacing: 0.03em;
+  color: var(--ink-strong);
+  text-shadow:
+    0 2px 26px rgba(62, 142, 219, 0.35),
+    0 1px 2px rgba(255, 255, 255, 0.6);
+}
+.app-shell[data-theme="night"] .hero h1 {
+  color: #ffffff;
+  text-shadow:
+    0 0 18px rgba(92, 169, 255, 0.6),
+    0 0 46px rgba(98, 223, 255, 0.35);
+}
+.brand b {
+  font-weight: 300;
+  letter-spacing: 0.14em;
+}
+.eyebrow {
+  letter-spacing: 0.34em;
+  font-weight: 400;
 }
