@@ -2311,7 +2311,41 @@ button {
     background 300ms ease,
     color 300ms ease;
 }
-.entry-actions button:not(:disabled):hover,
+
+.chat-input {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+}
+.chat-voice {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  font-size: 16px;
+  background: transparent;
+}
+.chat-voice:hover {
+  border-color: var(--coral);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--coral) 45%, transparent);
+}
+.chat-voice.listening {
+  border-color: var(--danger);
+  color: #fff;
+  background: var(--danger);
+  animation: voice-pulse 1.2s ease-in-out infinite;
+}
+@keyframes voice-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+}
 .lobby-actions button:not(:disabled):hover,
 .mode-picker button:not(.selected):hover,
 .fame-picker button:not(.selected):hover,

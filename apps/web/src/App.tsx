@@ -2,6 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { MusicPlayer } from "./MusicPlayer";
 import {
+  createSpeechRecognition,
+  type SpeechRecognitionLike,
+} from "./voice-input";
+import {
   defaultComparisonKeys,
   voteTierThresholds,
   type ComparisonKey,
@@ -262,6 +266,7 @@ export function App() {
   const [joinCode, setJoinCode] = useState("");
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [error, setError] = useState("");
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardMode, setLeaderboardMode] = useState<
@@ -279,7 +284,6 @@ export function App() {
   >(null);
   const [adminError, setAdminError] = useState("");
   const [adminBusy, setAdminBusy] = useState(false);
-  const [error, setError] = useState("");
   const [adminRebuild, setAdminRebuild] = useState<MappingRebuildSummary | null>(
     null,
   );
@@ -287,6 +291,8 @@ export function App() {
   const [chatText, setChatText] = useState("");
   const [chatOpen, setChatOpen] = useState(true);
   const chatListRef = useRef<HTMLDivElement | null>(null);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const [game, setGame] = useState<PublicGameSession | null>(null);
   const [daily, setDaily] = useState<DailyGame | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -613,6 +619,7 @@ export function App() {
             signal: controller.signal,
           },
         );
+
         const body = (await response.json()) as { items: SearchItem[] };
         setSearchItems(body.items);
       } catch (requestError) {
@@ -625,6 +632,35 @@ export function App() {
       controller.abort();
     };
   }, [activeGame, searchQuery]);
+
+  function toggleVoiceInput() {
+    if (voiceListening) {
+      recognitionRef.current?.stop();
+      setVoiceListening(false);
+      return;
+    }
+    const recognition = createSpeechRecognition();
+    if (!recognition) {
+      setError("语音输入需要 Chrome/Edge 且站点为 HTTPS（当前环境不支持）");
+      return;
+    }
+    recognition.lang = "zh-CN";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? "";
+      if (transcript) {
+        setChatText((current) =>
+          current ? `${current} ${transcript}` : transcript,
+        );
+      }
+    };
+    recognition.onend = () => setVoiceListening(false);
+    recognition.onerror = () => setVoiceListening(false);
+    recognitionRef.current = recognition;
+    setVoiceListening(true);
+    recognition.start();
+  }
 
   function handleRoomResponse(response: RoomResponse) {
     if (!response.ok) {
@@ -649,6 +685,12 @@ export function App() {
       },
     );
   }
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
 
   function sendChat() {
     const text = chatText.trim();
@@ -1966,13 +2008,6 @@ export function App() {
                           <button
                             type="button"
                             disabled={adminBusy}
-                            onClick={() => adminDecide(suggestion, "approved")}
-                          >
-                            通过
-                          </button>
-                          <button
-                            type="button"
-                            disabled={adminBusy}
                             onClick={() => adminDecide(suggestion, "rejected")}
                           >
                             拒绝
@@ -2045,10 +2080,20 @@ export function App() {
                   sendChat();
                 }}
               >
+                <button
+                  type="button"
+                  className={`chat-voice ${voiceListening ? "listening" : ""}`}
+                  aria-label={voiceListening ? "停止语音输入" : "语音输入"}
+                  onClick={toggleVoiceInput}
+                >
+                  🎤
+                </button>
                 <input
                   value={chatText}
                   maxLength={200}
-                  placeholder="对房间内所有人说…"
+                  placeholder={
+                    voiceListening ? "正在聆听……" : "对房间内所有人说…"
+                  }
                   onChange={(event) => setChatText(event.target.value)}
                 />
                 <button type="submit">发送</button>
