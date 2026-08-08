@@ -2664,6 +2664,7 @@ button {
 }
 /* 1v1 双栏记录：左我右敌 */
 .guess-history.duel-history {
+  display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
