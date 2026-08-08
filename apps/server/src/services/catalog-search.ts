@@ -96,7 +96,7 @@ function textScore(query: string, candidate: string): number {
     diceSimilarity(query, normalized),
   );
   const minimumSimilarity =
-    query.length === 3 ? 0.65 : query.length === 4 ? 0.58 : 0.48;
+    query.length === 3 ? 0.65 : query.length === 4 ? 0.58 : 0.55;
   return similarity >= minimumSimilarity
     ? 500 + Math.round(similarity * 300)
     : 0;

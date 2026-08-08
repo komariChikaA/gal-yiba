@@ -38,6 +38,7 @@ const catalog = [
   visualNovel("4", "Senren * Banka", ["Yuzusoft"], ["千恋＊万花"]),
   visualNovel("5", "A Hook Game", ["HOOKSOFT"]),
   visualNovel("6", "Key", ["VisualArt's"]),
+  visualNovel("7", "Yosuga no Sora", ["Sphere"], ["Yosusora"]),
 ];
 
 describe("searchCatalog", () => {
