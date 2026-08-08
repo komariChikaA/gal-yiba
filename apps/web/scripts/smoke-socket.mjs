@@ -77,7 +77,7 @@ try {
     }
 
     const searchResponse = await fetch(
-      `${serverUrl}/api/catalog/search?q=Ever17`,
+      `${serverUrl}/api/catalog/search?q=CLANNAD`,
     );
     const search = await searchResponse.json();
     const candidate = search.items?.[0];
@@ -92,11 +92,18 @@ try {
     if (comparisonCount !== created.room.rules.comparisonKeys.length) {
       throw new Error("guess comparison fields do not match room rules");
     }
+    const heroineHairColors = guessed.game.guesses[0]?.comparison.find(
+      (result) => result.key === "heroineHairColor",
+    )?.guessValue;
+    if (!Array.isArray(heroineHairColors) || heroineHairColors.length === 0) {
+      throw new Error("source-backed heroine hair colors are missing");
+    }
     gameResult = {
       gameStartOk: started.ok,
       answerHiddenAtStart: !started.game.answer,
       guessOk: guessed.ok,
       comparisonCount,
+      heroineHairColors,
     };
   }
 
