@@ -291,6 +291,7 @@ export function App() {
   const [recording, setRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingTimerRef = useRef<number | null>(null);
+  const chatAudioRef = useRef<HTMLAudioElement | null>(null);
   const [game, setGame] = useState<PublicGameSession | null>(null);
   const [daily, setDaily] = useState<DailyGame | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -674,7 +675,7 @@ export function App() {
     };
     mediaRecorderRef.current = recorder;
     setRecording(true);
-    recorder.start();
+    recorder.start(250);
     recordingTimerRef.current = window.setTimeout(() => {
       recorder.stop();
     }, 60_000);
@@ -691,7 +692,11 @@ export function App() {
   }
 
   function playChatAudio(audioId: string) {
+    // 复用同一元素并保持引用，防止 Chrome 对未挂载音频做垃圾回收导致无声
+    if (chatAudioRef.current) chatAudioRef.current.pause();
     const audio = new Audio(`/api/chat-audio/${audioId}`);
+    chatAudioRef.current = audio;
+    audio.onerror = () => setError("语音播放失败");
     void audio.play().catch(() => setError("语音播放失败"));
   }
 
