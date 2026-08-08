@@ -88,6 +88,8 @@ const gameRulesSchema = z.object({
     excludeTags: z.array(z.string().trim().min(1).max(80)).max(50),
     tagMode: z.enum(["all", "any"]),
     allAgesOnly: z.boolean(),
+    includeChina: z.boolean(),
+    includeWest: z.boolean(),
     maxTagSpoilerLevel: z.union([z.literal(0), z.literal(1), z.literal(2)]),
     fameTier: z.enum(["novice", "standard", "veteran"]),
   }),

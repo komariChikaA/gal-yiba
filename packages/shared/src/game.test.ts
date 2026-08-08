@@ -5,6 +5,7 @@ import {
   filterAnswerPool,
   publicGameSession,
   submitGuess,
+  visualNovelRegion,
 } from "./game.js";
 import type { GameRules, VisualNovel } from "./domain.js";
 
@@ -20,6 +21,8 @@ const rules: GameRules = {
     excludeTags: ["猎奇"],
     tagMode: "all",
     allAgesOnly: false,
+    includeChina: false,
+    includeWest: false,
     maxTagSpoilerLevel: 0,
     fameTier: "novice",
   },
@@ -290,5 +293,84 @@ describe("daily question session", () => {
     expect(second.answer.id).toBe(first.answer.id);
     expect(second.id).not.toBe(first.id);
     expect(second.guesses).toEqual([]);
+  });
+});
+
+describe("filterAnswerPool region toggles", () => {
+  const japanese = visualNovel("japan", {
+    title: "Japanese Game",
+    languages: ["ja"],
+  });
+  const chinese = visualNovel("china", {
+    title: "Chinese Game",
+    languages: ["zh-Hans"],
+  });
+  const western = visualNovel("west", {
+    title: "Western Game",
+    languages: ["en"],
+  });
+  const translated = visualNovel("west-translated", {
+    title: "Western with Chinese",
+    languages: ["en", "zh-Hans"],
+  });
+
+  it("excludes Chinese and Western games by default", () => {
+    const ids = filterAnswerPool(
+      [japanese, chinese, western, translated],
+      rules,
+    ).map((item) => item.id);
+    expect(ids).toEqual(["japan"]);
+  });
+
+  it("includes Chinese games only when toggled on", () => {
+    const ids = filterAnswerPool(
+      [japanese, chinese, western],
+      {
+        ...rules,
+        pool: { ...rules.pool, includeChina: true },
+      },
+    ).map((item) => item.id);
+    expect(ids).toEqual(["japan", "china"]);
+  });
+
+  it("includes Western games only when toggled on", () => {
+    const ids = filterAnswerPool(
+      [japanese, chinese, western],
+      {
+        ...rules,
+        pool: { ...rules.pool, includeWest: true },
+      },
+    ).map((item) => item.id);
+    expect(ids).toEqual(["japan", "west"]);
+  });
+
+  it("classifies a Western game with a Chinese translation as Western", () => {
+    expect(visualNovelRegion(translated)).toBe("west");
+    expect(visualNovelRegion(chinese)).toBe("china");
+    expect(visualNovelRegion(japanese)).toBe("japan");
+  });
+});
+
+describe("publicGameSession answer hiding", () => {
+  it("keeps the answer hidden for an exhausted player mid-round", () => {
+    const session = createGameSession(
+      [visualNovel("answer")],
+      { ...rules, maxGuesses: 1, pool: { ...rules.pool, includeTags: [] } },
+      { random: () => 0 },
+    );
+    const outcome = submitGuess(
+      session,
+      visualNovel("wrong"),
+      new Date("2026-08-08T00:00:05.000Z"),
+    );
+    if (!outcome.ok) throw new Error("expected a guess outcome");
+    expect(outcome.game.status).toBe("lost");
+    expect(publicGameSession(outcome.game).answer?.id).toBe("answer");
+    expect(
+      publicGameSession(outcome.game, { hideAnswer: true }).answer,
+    ).toBeUndefined();
+    expect(
+      publicGameSession(outcome.game, { hideAnswer: false }).answer?.id,
+    ).toBe("answer");
   });
 });

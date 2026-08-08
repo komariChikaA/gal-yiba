@@ -307,7 +307,9 @@ export function App() {
   const remainingSeconds = activeGame
     ? Math.max(0, Math.ceil((Date.parse(activeGame.deadlineAt) - clockNow) / 1000))
     : 0;
-
+  /** 多人局中猜测次数用尽但本轮尚未结束：不揭晓答案，继续倒计时。 */
+  const exhausted =
+    activeGame?.status === "lost" && room?.phase === "active";
   useEffect(() => {
     localStorage.setItem("gal-yiba-color-theme", colorTheme);
     document.documentElement.style.colorScheme =
@@ -320,7 +322,8 @@ export function App() {
   useEffect(() => {
     const ticking =
       (activeGame != null && activeGame.status === "active") ||
-      room?.phase === "round_result";
+      room?.phase === "round_result" ||
+      (activeGame?.status === "lost" && room?.phase === "active");
     if (!ticking) return;
     setClockNow(Date.now());
     const timer = window.setInterval(() => setClockNow(Date.now()), 250);
@@ -1290,6 +1293,40 @@ export function App() {
                       />
                     </label>
                     <label>
+                      <span>国旮（中国作品）</span>
+                      <input
+                        type="checkbox"
+                        checked={room.rules.pool.includeChina}
+                        disabled={!isHost}
+                        onChange={(event) =>
+                          saveRules({
+                            ...room.rules,
+                            pool: {
+                              ...room.rules.pool,
+                              includeChina: event.target.checked,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>欧美旮（非日非中）</span>
+                      <input
+                        type="checkbox"
+                        checked={room.rules.pool.includeWest}
+                        disabled={!isHost}
+                        onChange={(event) =>
+                          saveRules({
+                            ...room.rules,
+                            pool: {
+                              ...room.rules.pool,
+                              includeWest: event.target.checked,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
                       <span>标签剧透上限</span>
                       <select
                         value={room.rules.pool.maxTagSpoilerLevel}
@@ -1504,6 +1541,11 @@ export function App() {
                     : "时间到，正在等待本轮结算……"}
                 </div>
               )
+            ) : exhausted ? (
+              <div className="exhausted-wait">
+                <p>猜测次数用完，答案仍隐藏，等待本轮结束……</p>
+                <b>{formatCountdown(remainingSeconds)}</b>
+              </div>
             ) : (
               <>
                 <div className="answer-banner">

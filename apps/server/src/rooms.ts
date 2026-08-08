@@ -115,6 +115,8 @@ export const defaultRules: GameRules = {
     excludeTags: [],
     tagMode: "all",
     allAgesOnly: false,
+    includeChina: false,
+    includeWest: false,
     maxTagSpoilerLevel: 0,
     fameTier: "standard",
   },
@@ -490,7 +492,9 @@ export class RoomRegistry {
     room.revision += 1;
     return {
       room: snapshot(room),
-      game: publicGameSession(room.round.playerGames.get(playerId)!),
+      game: publicGameSession(room.round.playerGames.get(playerId)!, {
+        hideAnswer: room.phase === "active" && outcome.game.status === "lost",
+      }),
     };
   }
 
@@ -498,7 +502,9 @@ export class RoomRegistry {
     const room = this.requireRoom(code);
     const game = room.round?.playerGames.get(playerId);
     if (!game) throw new Error("PLAYER_NOT_IN_ROUND");
-    return publicGameSession(game);
+    return publicGameSession(game, {
+      hideAnswer: room.phase === "active" && game.status === "lost",
+    });
   }
 
   get(code: string): RoomSnapshot {

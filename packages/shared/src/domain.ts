@@ -97,6 +97,10 @@ export interface PoolFilter {
   excludeTags: string[];
   tagMode: "all" | "any";
   allAgesOnly: boolean;
+  /** 把中国本土作品纳入题池（默认关闭，仅日系）。 */
+  includeChina: boolean;
+  /** 把非日本非中国（欧美等）作品纳入题池（默认关闭）。 */
+  includeWest: boolean;
   maxTagSpoilerLevel: 0 | 1 | 2;
   fameTier: FameTier;
 }

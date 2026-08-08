@@ -21,6 +21,8 @@ function report(overrides: Partial<MatchReport> = {}): MatchReport {
         excludeTags: [],
         tagMode: "all",
         allAgesOnly: false,
+        includeChina: false,
+        includeWest: false,
         maxTagSpoilerLevel: 0,
         fameTier: "standard",
       },

@@ -109,6 +109,25 @@ export function visualNovelForRules(
   };
 }
 
+export type VisualNovelRegion = "japan" | "china" | "west";
+
+/** 区域判定：含日语 → 日系；全部语言为中文 → 国旮；否则 → 欧美。 */
+export function visualNovelRegion(
+  visualNovel: VisualNovel,
+): VisualNovelRegion {
+  const languages = (visualNovel.languages ?? []).map((language) =>
+    language.toLowerCase(),
+  );
+  if (languages.length === 0) return "japan";
+  if (languages.some((language) => language === "ja" || language === "jp")) {
+    return "japan";
+  }
+  const allChinese = languages.every(
+    (language) => language === "zh" || language.startsWith("zh-"),
+  );
+  return allChinese ? "china" : "west";
+}
+
 export function filterAnswerPool(
   catalog: VisualNovel[],
   rules: GameRules,
@@ -118,6 +137,9 @@ export function filterAnswerPool(
 
   return catalog
     .filter((visualNovel) => {
+      const region = visualNovelRegion(visualNovel);
+      if (region === "china" && !rules.pool.includeChina) return false;
+      if (region === "west" && !rules.pool.includeWest) return false;
       return (
         fameTierForVisualNovel(visualNovel) === rules.pool.fameTier &&
         (!rules.pool.allAgesOnly || visualNovel.ageRating === "all_ages")
@@ -254,9 +276,12 @@ export function submitGuess(
   };
   return { ok: true, game, guess };
 }
-
-export function publicGameSession(session: GameSession): PublicGameSession {
-  const finished = session.status !== "active";
+export function publicGameSession(
+  session: GameSession,
+  options: { hideAnswer?: boolean } = {},
+): PublicGameSession {
+  const revealAnswer =
+    session.status !== "active" && !(options.hideAnswer ?? false);
   return {
     id: session.id,
     status: session.status,
@@ -269,7 +294,7 @@ export function publicGameSession(session: GameSession): PublicGameSession {
       0,
       session.rules.maxGuesses - session.guesses.length,
     ),
-    ...(finished
+    ...(revealAnswer
       ? { answer: { id: session.answer.id, title: session.answer.title } }
       : {}),
   };

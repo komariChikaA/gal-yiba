@@ -2085,3 +2085,24 @@ footer b {
 .game-suggestions::-webkit-scrollbar-track {
   background: transparent;
 }
+.exhausted-wait {
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  text-align: center;
+  border: 2px dashed var(--line-strong);
+  border-radius: 15px;
+  margin: 16px 0 0;
+  padding: 24px 18px;
+}
+.exhausted-wait p {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+.exhausted-wait b {
+  color: var(--coral-strong);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
