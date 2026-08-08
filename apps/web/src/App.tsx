@@ -174,8 +174,14 @@ interface RoomFailure {
 }
 
 type RoomResponse = RoomSuccess | RoomFailure;
+type ColorTheme = "day" | "night";
 
 export function App() {
+  const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
+    return localStorage.getItem("gal-yiba-color-theme") === "night"
+      ? "night"
+      : "day";
+  });
   const [connected, setConnected] = useState(socket.connected);
   const [nickname, setNickname] = useState("");
   const [selectedMode, setSelectedMode] = useState<GameMode>("solo");
@@ -205,6 +211,15 @@ export function App() {
     (player) => player.id === session?.playerId,
   );
   const canEnter = nickname.trim().length > 0 && connected;
+
+  useEffect(() => {
+    localStorage.setItem("gal-yiba-color-theme", colorTheme);
+    document.documentElement.style.colorScheme =
+      colorTheme === "night" ? "dark" : "light";
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", colorTheme === "night" ? "#45445f" : "#fff7fc");
+  }, [colorTheme]);
 
   useEffect(() => {
     void fetch("/api/catalog/fame-tiers")
@@ -492,7 +507,7 @@ export function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-theme={colorTheme}>
       <header className="site-header">
         <a className="brand" href="#top" aria-label="旮一把首页">
           <span className="brand-dice">旮</span>
@@ -503,6 +518,20 @@ export function App() {
         <nav>
           <a href="#modes">玩法</a>
           <a href="#data">数据</a>
+          <button
+            className="theme-toggle"
+            type="button"
+            aria-label={
+              colorTheme === "day" ? "切换到柔和夜色" : "切换到明亮日光"
+            }
+            aria-pressed={colorTheme === "night"}
+            onClick={() =>
+              setColorTheme((current) => (current === "day" ? "night" : "day"))
+            }
+          >
+            <span aria-hidden="true">{colorTheme === "day" ? "☾" : "☀"}</span>
+            {colorTheme === "day" ? "夜色" : "日光"}
+          </button>
           <span className={`connection ${connected ? "online" : "offline"}`}>
             {connected ? "联机服务已连接" : "正在重连"}
           </span>
