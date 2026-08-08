@@ -472,6 +472,43 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("room:chat", (payload: unknown, acknowledge) => {
+    try {
+      const identity = socketIdentity(socket);
+      const text = z
+        .string()
+        .trim()
+        .min(1)
+        .max(200)
+        .parse((payload as { text?: unknown })?.text);
+      const message = rooms.postChat(
+        identity.roomCode,
+        identity.playerId,
+        text,
+        new Date(),
+      );
+      acknowledge({ ok: true, message });
+      io.to(identity.roomCode).emit("room:chat", message);
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on("room:chat-history", (_payload: unknown, acknowledge) => {
+    try {
+      const identity = socketIdentity(socket);
+      acknowledge({ ok: true, messages: rooms.chatHistory(identity.roomCode) });
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
   socket.on("room:join", (payload: unknown, acknowledge) => {
     try {
       const input = joinSchema.parse(payload);

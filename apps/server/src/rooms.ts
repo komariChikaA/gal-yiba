@@ -63,12 +63,20 @@ interface MutableRoundRecord {
   winnerPlayerId: string | null;
 }
 
+export interface ChatMessage {
+  playerId: string;
+  nickname: string;
+  text: string;
+  at: string;
+}
+
 interface MutableRoom extends Omit<RoomSnapshot, "players" | "round" | "scores"> {
   players: Map<string, RoomPlayer>;
   round: MutableRound | null;
   scores: Map<string, number>;
   catalog: VisualNovel[];
   roundHistory: MutableRoundRecord[];
+  chat: ChatMessage[];
 }
 
 export interface MatchRoundReport {
@@ -209,6 +217,7 @@ export class RoomRegistry {
       scores: new Map([[playerId, 0]]),
       catalog: [],
       roundHistory: [],
+      chat: [],
       revision: 1,
     };
     this.rooms.set(code, room);
@@ -542,6 +551,39 @@ export class RoomRegistry {
         winnerPlayerId: record.winnerPlayerId,
       })),
     };
+  }
+
+  postChat(
+    codeInput: string,
+    playerId: string,
+    textInput: string,
+    now = new Date(),
+  ): ChatMessage {
+    const code = codeInput.trim().toUpperCase();
+    const room = this.requireRoom(code);
+    const player = room.players.get(playerId);
+    if (!player) throw new Error("PLAYER_NOT_FOUND");
+    const text = textInput.trim();
+    if (text.length === 0) throw new Error("CHAT_EMPTY");
+    if (text.length > 200) throw new Error("CHAT_TOO_LONG");
+    const last = [...room.chat].reverse().find((message) => message.playerId === playerId);
+    if (last && now.getTime() - Date.parse(last.at) < 400)
+      throw new Error("CHAT_TOO_FAST");
+    const message: ChatMessage = {
+      playerId,
+      nickname: player.nickname,
+      text,
+      at: now.toISOString(),
+    };
+    room.chat.push(message);
+    if (room.chat.length > 100) room.chat.splice(0, room.chat.length - 100);
+    return message;
+  }
+
+  chatHistory(codeInput: string): ChatMessage[] {
+    return this.requireRoom(codeInput.trim().toUpperCase()).chat.map(
+      (message) => ({ ...message }),
+    );
   }
 
   expire(codeInput: string, now = new Date()): RoomSnapshot | null {

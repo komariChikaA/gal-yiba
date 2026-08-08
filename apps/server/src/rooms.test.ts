@@ -525,3 +525,89 @@ describe("stable player identity and match reports", () => {
     expect(registry.getMatchReport(host.room.code)).toBeNull();
   });
 });
+
+describe("room chat", () => {
+  it("posts and returns a chat message with the sender nickname", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主");
+    const message = registry.postChat(
+      host.room.code,
+      host.session.playerId,
+      "  大家加油！  ",
+      new Date("2026-08-08T00:00:00.000Z"),
+    );
+    expect(message).toEqual({
+      playerId: host.session.playerId,
+      nickname: "房主",
+      text: "大家加油！",
+      at: "2026-08-08T00:00:00.000Z",
+    });
+    expect(registry.chatHistory(host.room.code)).toHaveLength(1);
+  });
+
+  it("rejects empty text, oversized text, and unknown players", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主");
+    expect(() =>
+      registry.postChat(host.room.code, host.session.playerId, "   "),
+    ).toThrow("CHAT_EMPTY");
+    expect(() =>
+      registry.postChat(
+        host.room.code,
+        host.session.playerId,
+        "字".repeat(201),
+      ),
+    ).toThrow("CHAT_TOO_LONG");
+    expect(() =>
+      registry.postChat(
+        host.room.code,
+        "00000000-0000-4000-8000-000000000000",
+        "hi",
+      ),
+    ).toThrow("PLAYER_NOT_FOUND");
+  });
+
+  it("rate-limits rapid messages from the same player", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主");
+    registry.postChat(
+      host.room.code,
+      host.session.playerId,
+      "第一条",
+      new Date("2026-08-08T00:00:00.000Z"),
+    );
+    expect(() =>
+      registry.postChat(
+        host.room.code,
+        host.session.playerId,
+        "太快了",
+        new Date("2026-08-08T00:00:00.200Z"),
+      ),
+    ).toThrow("CHAT_TOO_FAST");
+    const ok = registry.postChat(
+      host.room.code,
+      host.session.playerId,
+      "隔了半秒",
+      new Date("2026-08-08T00:00:00.600Z"),
+    );
+    expect(ok.text).toBe("隔了半秒");
+  });
+
+  it("bounds the chat history to the last 100 messages", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主");
+    const base = new Date("2026-08-08T00:00:00.000Z").getTime();
+    for (let index = 0; index < 120; index += 1) {
+      registry.postChat(
+        host.room.code,
+        host.session.playerId,
+        `消息 ${index}`,
+        new Date(base + index * 600),
+      );
+    }
+    const history = registry.chatHistory(host.room.code);
+    expect(history).toHaveLength(100);
+    expect(history[0]?.text).toBe("消息 20");
+    expect(history[history.length - 1]?.text).toBe("消息 119");
+  });
+});

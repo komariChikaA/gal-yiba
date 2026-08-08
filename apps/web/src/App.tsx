@@ -167,6 +167,13 @@ interface PublicGameSession {
   answer?: { id: string; title: string };
 }
 
+interface ChatMessage {
+  playerId: string;
+  nickname: string;
+  text: string;
+  at: string;
+}
+
 interface DailyGame {
   date: string;
   playerToken: string | null;
@@ -264,10 +271,13 @@ export function App() {
   >(null);
   const [adminError, setAdminError] = useState("");
   const [adminBusy, setAdminBusy] = useState(false);
+  const [error, setError] = useState("");
   const [adminRebuild, setAdminRebuild] = useState<MappingRebuildSummary | null>(
     null,
   );
-  const [error, setError] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatText, setChatText] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
   const [game, setGame] = useState<PublicGameSession | null>(null);
   const [daily, setDaily] = useState<DailyGame | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -519,6 +529,9 @@ export function App() {
     socket.on("disconnect", onDisconnect);
     socket.on("room:updated", onRoomUpdated);
     socket.on("game:state", onGameState);
+    socket.on("room:chat", (message: ChatMessage) =>
+      setChatMessages((current) => [...current, message].slice(-100)),
+    );
     if (socket.connected) tryReconnect();
     return () => {
       socket.off("connect", onConnect);
@@ -605,6 +618,26 @@ export function App() {
       JSON.stringify(response.session),
     );
     localStorage.setItem("gal-yiba-last-room", response.room.code);
+    socket.emit(
+      "room:chat-history",
+      {},
+      (historyResponse: { ok: boolean; messages?: ChatMessage[] }) => {
+        if (historyResponse.ok) setChatMessages(historyResponse.messages ?? []);
+      },
+    );
+  }
+
+  function sendChat() {
+    const text = chatText.trim();
+    if (!text) return;
+    setChatText("");
+    socket.emit(
+      "room:chat",
+      { text },
+      (response: { ok: boolean; error?: string }) => {
+        if (!response.ok) setError(response.error ?? "CHAT_FAILED");
+      },
+    );
   }
 
   function applyFeatureCode(raw: string) {
@@ -1918,6 +1951,53 @@ export function App() {
               </>
             )}
           </div>
+        </div>
+      )}
+      {room && (
+        <div className="room-chat">
+          <button
+            type="button"
+            className="chat-fab"
+            onClick={() => setChatOpen((current) => !current)}
+          >
+            对话
+          </button>
+          {chatOpen && (
+            <div className="chat-panel" aria-label="房间对话">
+              <div className="chat-messages">
+                {chatMessages.length === 0 ? (
+                  <p className="chat-empty">房间内还没有消息</p>
+                ) : (
+                  chatMessages.map((message, index) => (
+                    <div
+                      key={`${message.at}-${index}`}
+                      className={
+                        message.playerId === session?.playerId ? "self" : ""
+                      }
+                    >
+                      <b>{message.nickname}</b>
+                      <span>{message.text}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+              <form
+                className="chat-input"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  sendChat();
+                }}
+              >
+                <input
+                  value={chatText}
+                  maxLength={200}
+                  placeholder="对房间内所有人说…"
+                  onChange={(event) => setChatText(event.target.value)}
+                />
+                <button type="submit">发送</button>
+              </form>
+            </div>
+          )}
         </div>
       )}
       <MusicPlayer />
