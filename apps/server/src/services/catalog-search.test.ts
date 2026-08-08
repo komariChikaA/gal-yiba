@@ -37,12 +37,14 @@ const catalog = [
   visualNovel("3", "CLANNAD", ["Key"]),
   visualNovel("4", "Senren * Banka", ["Yuzusoft"], ["千恋＊万花"]),
   visualNovel("5", "A Hook Game", ["HOOKSOFT"]),
+  visualNovel("6", "Key", ["VisualArt's"]),
 ];
 
 describe("searchCatalog", () => {
   it("matches normalized aliases and tolerates a title typo", () => {
     expect(searchCatalog(catalog, "时空 轮回")[0]?.id).toBe("1");
     expect(searchCatalog(catalog, "CLANAD")[0]?.id).toBe("3");
+    expect(searchCatalog(catalog, "千恋花")[0]?.id).toBe("4");
   });
 
   it("returns every matching developer game with an explicit match reason", () => {
@@ -64,5 +66,23 @@ describe("searchCatalog", () => {
       value: "Yuzusoft",
     });
     expect(searchCatalog(catalog, "千恋万花")[0]?.id).toBe("4");
+  });
+
+  it("fuzzy-matches developer names", () => {
+    const results = searchCatalog(catalog, "Yuzusfot");
+    expect(results.map((item) => item.id)).toEqual(["4"]);
+    expect(results[0]?.match).toEqual({
+      type: "developer",
+      value: "Yuzusoft",
+    });
+  });
+
+  it("places title matches before developer matches", () => {
+    const results = searchCatalog(catalog, "Key");
+    expect(results.map((item) => item.id)).toEqual(["6", "3"]);
+    expect(results.map((item) => item.match.type)).toEqual([
+      "title",
+      "developer",
+    ]);
   });
 });

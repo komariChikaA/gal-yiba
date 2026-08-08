@@ -689,10 +689,10 @@ button {
   gap: 6px;
 }
 .guess-history article > div > span {
-  min-height: 54px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
+  min-height: 86px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   padding: 8px 10px;
   background: #c9c0b6;
 }
@@ -712,19 +712,24 @@ button {
   );
 }
 .guess-history article small {
-  grid-column: 1 / -1;
   color: #5d554e;
   font-size: 9px;
 }
-.guess-history article em {
-  min-width: 0;
-  overflow: hidden;
+.guess-history .comparison-value {
+  display: block;
+  margin-top: 6px;
   color: #312a25;
-  font-size: 11px;
-  font-style: normal;
+  font-size: 12px;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.guess-history .comparison-verdict {
+  margin-top: auto;
+  padding-top: 7px;
+  color: #514941;
+  font-size: 10px;
+  font-weight: 700;
 }
 .guess-history article i {
   font-style: normal;
