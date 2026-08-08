@@ -15,7 +15,7 @@ function argument(name: string, fallback?: string): string | undefined {
 const source = process.argv[2];
 if (source !== "vndb" && source !== "bangumi") {
   throw new Error(
-    "Usage: sync-catalog.ts <vndb|bangumi> [--page=1] [--keyword=title]",
+    "Usage: sync-catalog.ts <vndb|bangumi> [--page=1] [--keyword=title] [--developer=name] [--sort=id|released|rating|votecount] [--reverse=true|false]",
   );
 }
 
@@ -27,12 +27,33 @@ try {
   if (source === "vndb") {
     const page = Number(argument("page", "1"));
     if (!Number.isInteger(page) || page < 1) throw new Error("INVALID_PAGE");
+    const keyword = argument("keyword")?.trim();
+    const developer = argument("developer")?.trim();
+    if (keyword && developer)
+      throw new Error("VNDB_FILTERS_MUTUALLY_EXCLUSIVE");
+    const sort = argument("sort", "id");
+    if (!sort || !["id", "released", "rating", "votecount"].includes(sort))
+      throw new Error("INVALID_VNDB_SORT");
+    const reverseInput = argument("reverse", "false");
+    if (reverseInput !== "true" && reverseInput !== "false")
+      throw new Error("INVALID_REVERSE");
+    const reverse = reverseInput === "true";
     const client = new VndbClient(
       process.env.VNDB_API_BASE ? { baseUrl: process.env.VNDB_API_BASE } : {},
     );
-    const summary = await sync.syncPage("vndb", String(page), () =>
-      client.listVisualNovels(page),
-    );
+    const cursor = developer
+      ? `developer:${developer}:${page}`
+      : keyword
+        ? `search:${keyword}:${page}`
+        : `${sort}:${reverse ? "desc" : "asc"}:${page}`;
+    const summary = await sync.syncPage("vndb", cursor, () => {
+      if (developer) return client.listVisualNovelsByDeveloper(developer, page);
+      if (keyword) return client.searchVisualNovels(keyword, page);
+      return client.listVisualNovels(page, 100, {
+        sort: sort as "id" | "released" | "rating" | "votecount",
+        reverse,
+      });
+    });
     console.log(JSON.stringify(summary));
   } else {
     const keyword = argument("keyword");

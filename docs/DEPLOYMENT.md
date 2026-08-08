@@ -42,10 +42,13 @@ curl http://127.0.0.1:3000/api/health
 
 ```bash
 docker compose exec app node apps/server/dist/cli/sync-catalog.js vndb --page=1
+docker compose exec app node apps/server/dist/cli/sync-catalog.js vndb --sort=votecount --reverse=true --page=1
+docker compose exec app node apps/server/dist/cli/sync-catalog.js vndb --developer=Yuzusoft
+docker compose exec app node apps/server/dist/cli/sync-catalog.js vndb --keyword="Senren Banka"
 docker compose exec app node apps/server/dist/cli/sync-catalog.js bangumi --keyword=Ever17
 ```
 
-VNDB 支持按页继续；Bangumi 当前入口按关键词用于映射候选。批量映射队列和管理审核页仍在开发中。
+VNDB 支持按编号、高票数、评分或发行时间分页，也可以按 VNDB 可识别的作品名或开发会社定向补录。中文标题优先通过同步后的 VNDB 别名搜索；VNDB 官方远程全文检索本身不保证接受纯中文关键词。Bangumi 当前入口按关键词用于映射候选。批量映射队列和管理审核页仍在开发中。
 
 查看映射候选：
 

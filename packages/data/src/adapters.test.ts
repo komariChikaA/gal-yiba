@@ -21,6 +21,7 @@ describe("VndbClient", () => {
               id: "v17",
               title: "Ever17",
               alttitle: null,
+              aliases: ["Ever 17 alias"],
               titles: [{ title: "Ever17", lang: "ja", main: true }],
               released: "2002-08-29",
               developers: [{ id: "p1", name: "KID" }],
@@ -118,6 +119,7 @@ describe("VndbClient", () => {
     expect(page.items[0]?.rating).toBe(8.2);
     expect(page.items[0]?.sourceId).toBe("v17");
     expect(page.items[0]?.developers).toEqual(["KID"]);
+    expect(page.items[0]?.alternativeTitles).toContain("Ever 17 alias");
     expect(page.items[0]?.ageRating).toBe("restricted");
     expect(page.items[0]?.animeAdaptation).toBe("has_adaptation");
     expect(page.items[0]?.heroineHairColors).toEqual(["blue", "brown"]);
@@ -131,6 +133,62 @@ describe("VndbClient", () => {
       (page.items[0]?.raw as { heroineHairEvidence: unknown[] })
         .heroineHairEvidence,
     ).toHaveLength(1);
+  });
+
+  it("resolves an exact producer and lists all of its visual novels", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          more: false,
+          results: [
+            {
+              id: "p98",
+              name: "Yuzusoft",
+              original: "ゆずソフト",
+              aliases: ["柚子社"],
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          more: false,
+          results: [
+            {
+              id: "v19073",
+              title: "Senren * Banka",
+              alttitle: "千恋＊万花",
+              aliases: ["千恋万花"],
+              titles: [],
+              released: "2016-07-29",
+              developers: [{ id: "p98", name: "Yuzusoft" }],
+              staff: [],
+              length: 4,
+              languages: ["ja", "zh-Hans"],
+              platforms: ["win"],
+              rating: 79,
+              votecount: 9000,
+              popularity: 20,
+              tags: [],
+            },
+          ],
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ more: false, results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ more: false, results: [] }))
+      .mockResolvedValueOnce(jsonResponse({ more: false, results: [] }));
+
+    const page = await new VndbClient({ fetcher }).listVisualNovelsByDeveloper(
+      "柚子社",
+    );
+    expect(page.items.map((item) => item.sourceId)).toEqual(["v19073"]);
+    expect(page.items[0]?.alternativeTitles).toContain("千恋万花");
+    expect(fetcher.mock.calls[0]?.[0]).toContain("/producer");
+    expect(fetcher.mock.calls[0]?.[1]?.body).toContain('"search","=","柚子社"');
+    expect(fetcher.mock.calls[1]?.[1]?.body).toContain(
+      '"developer","=",["id","=","p98"]',
+    );
   });
 });
 

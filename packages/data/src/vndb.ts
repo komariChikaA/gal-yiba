@@ -1,4 +1,5 @@
 import { requestJson, type FetchLike } from "./http.js";
+import { normalizeTitle } from "./matching.js";
 import type {
   PagedResult,
   SourceHeroineHairColor,
@@ -26,6 +27,16 @@ const hairColorOrder = new Map(
   Object.values(hairColorByTraitId).map((color, index) => [color, index]),
 );
 
+const visualNovelFields =
+  "id,title,alttitle,aliases,titles{title,lang,main},released,developers{id,name},staff{id,name,role},length,languages,platforms,rating,votecount,popularity,tags{id,name,rating,spoiler,category}";
+
+export type VndbVisualNovelSort = "id" | "released" | "rating" | "votecount";
+
+export interface VndbListOptions {
+  sort?: VndbVisualNovelSort;
+  reverse?: boolean;
+}
+
 interface VndbTitle {
   title: string;
   lang: string;
@@ -44,6 +55,7 @@ interface VndbVisualNovel {
   id: string;
   title: string;
   alttitle: string | null;
+  aliases: string[];
   titles: VndbTitle[];
   released: string | null;
   developers: Array<{ id: string; name: string }>;
@@ -59,6 +71,18 @@ interface VndbVisualNovel {
 
 interface VndbResponse {
   results: VndbVisualNovel[];
+  more: boolean;
+}
+
+interface VndbProducer {
+  id: string;
+  name: string;
+  original: string | null;
+  aliases: string[];
+}
+
+interface VndbProducerResponse {
+  results: VndbProducer[];
   more: boolean;
 }
 
@@ -124,6 +148,76 @@ export class VndbClient {
   async listVisualNovels(
     page = 1,
     pageSize = 100,
+    options: VndbListOptions = {},
+  ): Promise<PagedResult<SourceVisualNovel>> {
+    return this.queryVisualNovels(
+      ["id", ">=", "v1"],
+      page,
+      pageSize,
+      options.sort ?? "id",
+      options.reverse ?? false,
+    );
+  }
+
+  async searchVisualNovels(
+    query: string,
+    page = 1,
+    pageSize = 100,
+  ): Promise<PagedResult<SourceVisualNovel>> {
+    if (!query.trim()) throw new Error("VNDB_SEARCH_QUERY_REQUIRED");
+    return this.queryVisualNovels(
+      ["search", "=", query.trim()],
+      page,
+      pageSize,
+      "searchrank",
+      false,
+    );
+  }
+
+  async listVisualNovelsByDeveloper(
+    query: string,
+    page = 1,
+    pageSize = 100,
+  ): Promise<PagedResult<SourceVisualNovel>> {
+    const search = query.trim();
+    if (!search) throw new Error("VNDB_DEVELOPER_QUERY_REQUIRED");
+    const response = await requestJson<VndbProducerResponse>(
+      this.fetcher,
+      `${this.baseUrl}/producer`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          filters: ["search", "=", search],
+          fields: "name,original,aliases",
+          results: 10,
+        }),
+      },
+    );
+    const normalizedQuery = normalizeTitle(search);
+    const producer =
+      response.results.find((candidate) =>
+        [candidate.name, candidate.original, ...candidate.aliases]
+          .filter((value): value is string => Boolean(value))
+          .some((value) => normalizeTitle(value) === normalizedQuery),
+      ) ?? response.results[0];
+    if (!producer) return { items: [], hasMore: false, nextCursor: null };
+
+    return this.queryVisualNovels(
+      ["developer", "=", ["id", "=", producer.id]],
+      page,
+      pageSize,
+      "released",
+      false,
+    );
+  }
+
+  private async queryVisualNovels(
+    filters: unknown[],
+    page: number,
+    pageSize: number,
+    sort: VndbVisualNovelSort | "searchrank",
+    reverse: boolean,
   ): Promise<PagedResult<SourceVisualNovel>> {
     const response = await requestJson<VndbResponse>(
       this.fetcher,
@@ -132,10 +226,10 @@ export class VndbClient {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          filters: ["id", ">=", "v1"],
-          fields:
-            "id,title,alttitle,titles{title,lang,main},released,developers{id,name},staff{id,name,role},length,languages,platforms,rating,votecount,popularity,tags{id,name,rating,spoiler,category}",
-          sort: "id",
+          filters,
+          fields: visualNovelFields,
+          sort,
+          reverse,
           results: Math.min(100, Math.max(1, pageSize)),
           page,
         }),
@@ -351,6 +445,7 @@ export class VndbClient {
   ): SourceVisualNovel {
     const alternativeTitles = [
       item.alttitle,
+      ...item.aliases,
       ...item.titles.map((title) => title.title),
     ]
       .filter((title): title is string =>

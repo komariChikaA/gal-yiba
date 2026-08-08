@@ -35,6 +35,8 @@ const catalog = [
   visualNovel("1", "Ever17 -the out of infinity-", ["KID"], ["时空轮回"]),
   visualNovel("2", "Remember11", ["KID"]),
   visualNovel("3", "CLANNAD", ["Key"]),
+  visualNovel("4", "Senren * Banka", ["Yuzusoft"], ["千恋＊万花"]),
+  visualNovel("5", "A Hook Game", ["HOOKSOFT"]),
 ];
 
 describe("searchCatalog", () => {
@@ -52,5 +54,15 @@ describe("searchCatalog", () => {
 
   it("does not return unrelated short-query noise", () => {
     expect(searchCatalog(catalog, "ZZ")).toEqual([]);
+  });
+
+  it("keeps exact developer and alias matches ahead of fuzzy noise", () => {
+    const developerResults = searchCatalog(catalog, "Yuzusoft");
+    expect(developerResults.map((item) => item.id)).toEqual(["4"]);
+    expect(developerResults[0]?.match).toEqual({
+      type: "developer",
+      value: "Yuzusoft",
+    });
+    expect(searchCatalog(catalog, "千恋万花")[0]?.id).toBe("4");
   });
 });

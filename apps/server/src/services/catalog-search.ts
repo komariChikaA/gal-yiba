@@ -52,7 +52,7 @@ export function searchCatalog(
   const query = normalizeTitle(queryInput);
   if (!query) return [];
 
-  return catalog
+  const ranked = catalog
     .map((visualNovel) => {
       const titleMatches = [visualNovel.title, ...visualNovel.aliases]
         .map((value) => ({ value, score: textScore(query, value) }))
@@ -85,7 +85,11 @@ export function searchCatalog(
       (left, right) =>
         right.score - left.score ||
         left.item.title.localeCompare(right.item.title),
-    )
+    );
+  const bestScore = ranked[0]?.score ?? 0;
+  const minimumScore = bestScore >= 700 ? 700 : Math.max(450, bestScore - 60);
+  return ranked
+    .filter((result) => result.score >= minimumScore)
     .slice(0, Math.max(1, Math.min(50, limit)))
     .map((result) => result.item);
 }
