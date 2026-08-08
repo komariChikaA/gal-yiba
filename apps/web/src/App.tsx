@@ -2,10 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { MusicPlayer } from "./MusicPlayer";
 import {
-  createSpeechRecognition,
-  type SpeechRecognitionLike,
-} from "./voice-input";
-import {
   defaultComparisonKeys,
   voteTierThresholds,
   type ComparisonKey,
@@ -292,8 +288,9 @@ export function App() {
   const [chatText, setChatText] = useState("");
   const [chatOpen, setChatOpen] = useState(true);
   const chatListRef = useRef<HTMLDivElement | null>(null);
-  const [voiceListening, setVoiceListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const [recording, setRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
   const [game, setGame] = useState<PublicGameSession | null>(null);
   const [daily, setDaily] = useState<DailyGame | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -634,33 +631,68 @@ export function App() {
     };
   }, [activeGame, searchQuery]);
 
-  function toggleVoiceInput() {
-    if (voiceListening) {
-      recognitionRef.current?.stop();
-      setVoiceListening(false);
+  async function toggleRecord() {
+    if (recording) {
+      mediaRecorderRef.current?.stop();
       return;
     }
-    const recognition = createSpeechRecognition();
-    if (!recognition) {
-      setError("语音输入需要 Chrome/Edge 且站点为 HTTPS（当前环境不支持）");
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setError("无法访问麦克风（需要 HTTPS 与浏览器授权）");
       return;
     }
-    recognition.lang = "zh-CN";
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognition.onresult = (event) => {
-      const transcript = event.results[0]?.[0]?.transcript ?? "";
-      if (transcript) {
-        setChatText((current) =>
-          current ? `${current} ${transcript}` : transcript,
-        );
-      }
+    let recorder: MediaRecorder;
+    try {
+      recorder = new MediaRecorder(stream);
+    } catch {
+      stream.getTracks().forEach((track) => track.stop());
+      setError("当前浏览器不支持录音");
+      return;
+    }
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) chunks.push(event.data);
     };
-    recognition.onend = () => setVoiceListening(false);
-    recognition.onerror = () => setVoiceListening(false);
-    recognitionRef.current = recognition;
-    setVoiceListening(true);
-    recognition.start();
+    recorder.onstop = () => {
+      stream.getTracks().forEach((track) => track.stop());
+      if (recordingTimerRef.current !== null) {
+        window.clearTimeout(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+      setRecording(false);
+      const blob = new Blob(chunks, {
+        type: recorder.mimeType || "audio/webm",
+      });
+      if (blob.size > 0) sendAudioMessage(blob);
+    };
+    recorder.onerror = () => {
+      stream.getTracks().forEach((track) => track.stop());
+      setRecording(false);
+      setError("录音失败");
+    };
+    mediaRecorderRef.current = recorder;
+    setRecording(true);
+    recorder.start();
+    recordingTimerRef.current = window.setTimeout(() => {
+      recorder.stop();
+    }, 60_000);
+  }
+
+  function sendAudioMessage(blob: Blob) {
+    socket.emit(
+      "room:chat-audio",
+      { audio: blob, mimeType: blob.type },
+      (response: { ok: boolean; error?: string }) => {
+        if (!response.ok) setError(response.error ?? "语音发送失败");
+      },
+    );
+  }
+
+  function playChatAudio(audioId: string) {
+    const audio = new Audio(`/api/chat-audio/${audioId}`);
+    void audio.play().catch(() => setError("语音播放失败"));
   }
 
   function handleRoomResponse(response: RoomResponse) {
@@ -689,7 +721,7 @@ export function App() {
 
   useEffect(() => {
     return () => {
-      recognitionRef.current?.stop();
+      mediaRecorderRef.current?.stop();
     };
   }, []);
 
@@ -2075,7 +2107,17 @@ export function App() {
                       }
                     >
                       <b>{message.nickname}</b>
-                      <span>{message.text}</span>
+                      {message.audioId ? (
+                        <button
+                          type="button"
+                          className="chat-audio-play"
+                          onClick={() => playChatAudio(message.audioId!)}
+                        >
+                          ▶ 语音
+                        </button>
+                      ) : (
+                        <span>{message.text}</span>
+                      )}
                     </div>
                   ))
                 )}
@@ -2089,9 +2131,9 @@ export function App() {
               >
                 <button
                   type="button"
-                  className={`chat-voice ${voiceListening ? "listening" : ""}`}
-                  aria-label={voiceListening ? "停止语音输入" : "语音输入"}
-                  onClick={toggleVoiceInput}
+                  className={`chat-voice ${recording ? "listening" : ""}`}
+                  aria-label={recording ? "停止录音并发送" : "录音并发送语音"}
+                  onClick={() => void toggleRecord()}
                 >
                   🎤
                 </button>
@@ -2099,7 +2141,7 @@ export function App() {
                   value={chatText}
                   maxLength={200}
                   placeholder={
-                    voiceListening ? "正在聆听……" : "对房间内所有人说…"
+                    recording ? "正在录音……" : "对房间内所有人说…"
                   }
                   onChange={(event) => setChatText(event.target.value)}
                 />

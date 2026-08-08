@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,6 +44,11 @@ const catalogRepository = databasePool
   ? new CatalogRepository(databasePool)
   : null;
 const matchRecorder = new MatchRecorder(databasePool);
+/** 聊天语音消息：内存暂存 30 分钟，供回放/重连拉取。 */
+const chatAudios = new Map<
+  string,
+  { buffer: Buffer; mimeType: string }
+>();
 
 let catalogCache: Awaited<ReturnType<typeof CatalogRepository.prototype.listVisualNovels>> | null =
   null;
@@ -327,6 +333,17 @@ app.get("/api/leaderboard", async (request, response, next) => {
   }
 });
 
+app.get("/api/chat-audio/:audioId", (request, response) => {
+  const audio = chatAudios.get(String(request.params.audioId ?? ""));
+  if (!audio) {
+    response.status(404).end();
+    return;
+  }
+  response.setHeader("Content-Type", audio.mimeType);
+  response.setHeader("Cache-Control", "private, max-age=300");
+  response.send(audio.buffer);
+});
+
 const adminToken = process.env.ADMIN_TOKEN ?? "";
 const adminEnabled = adminToken.length > 0;
 
@@ -505,6 +522,39 @@ io.on("connection", (socket) => {
     try {
       const identity = socketIdentity(socket);
       acknowledge({ ok: true, messages: rooms.chatHistory(identity.roomCode) });
+    } catch (error) {
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on("room:chat-audio", (payload: unknown, acknowledge) => {
+    try {
+      const identity = socketIdentity(socket);
+      const data = payload as { audio?: unknown; mimeType?: unknown };
+      const raw = data.audio;
+      if (!(raw instanceof Uint8Array) || raw.byteLength === 0)
+        throw new Error("AUDIO_EMPTY");
+      if (raw.byteLength > 1_000_000) throw new Error("AUDIO_TOO_LARGE");
+      const mimeType =
+        typeof data.mimeType === "string" &&
+        data.mimeType.startsWith("audio/")
+          ? data.mimeType
+          : "audio/webm";
+      const audioId = randomUUID();
+      chatAudios.set(audioId, { buffer: Buffer.from(raw), mimeType });
+      setTimeout(() => chatAudios.delete(audioId), 30 * 60_000).unref();
+      const message = rooms.postChat(
+        identity.roomCode,
+        identity.playerId,
+        "",
+        new Date(),
+        audioId,
+      );
+      acknowledge({ ok: true, message });
+      io.to(identity.roomCode).emit("room:chat", message);
     } catch (error) {
       acknowledge({
         ok: false,
