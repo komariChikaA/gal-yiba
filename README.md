@@ -55,4 +55,4 @@ Windows PowerShell 请先设置 `$env:SERVER_URL`，再运行同一条 `pnpm` �
 
 生产服务器可使用 `docker compose up -d --build`；部署前需按[部署指南](docs/DEPLOYMENT.md)配置数据库密码、域名和 Bangumi User-Agent。
 
-> GitHub 仓库名、可见性和软件许可证尚待确认。当前实现只参考交互和前后端分工，没有复制参考项目的 AGPL 源码。
+> 本项目公开发布于 `komariChikaA/gal-yiba`。软件许可证仍待确认；当前实现只参考交互和前后端分工，没有复制参考项目的 AGPL 源码。
