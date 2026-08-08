@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatTime, playlist } from "./playlist";
 
 const VOLUME_KEY = "gal-yiba-player-volume";
+const FADE_STEP_MS = 30;
 
 function loadVolume(): number {
   const stored = Number(localStorage.getItem(VOLUME_KEY));
@@ -17,39 +18,111 @@ export function MusicPlayer() {
   const [open, setOpen] = useState(false);
   const [failed, setFailed] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fadeTimerRef = useRef<number | null>(null);
+  const volumeRef = useRef(volume);
 
   if (playlist.length === 0) return null;
   const track = playlist[trackIndex % playlist.length] ?? playlist[0]!;
 
   useEffect(() => {
+    volumeRef.current = volume;
     localStorage.setItem(VOLUME_KEY, String(volume));
     if (audioRef.current) audioRef.current.volume = volume;
   }, [volume]);
 
   useEffect(() => {
+    return () => {
+      if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+    };
+  }, []);
+
+  function stopFade(): void {
+    if (fadeTimerRef.current !== null) {
+      window.clearTimeout(fadeTimerRef.current);
+      fadeTimerRef.current = null;
+    }
+  }
+
+  function fadeTo(target: number, duration: number, onDone?: () => void): void {
     const audio = audioRef.current;
     if (!audio) return;
+    stopFade();
+    const from = audio.volume;
+    const startedAt = performance.now();
+    const step = (now: number): void => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      audio.volume = Math.max(0, from + (target - from) * progress);
+      if (progress < 1) {
+        fadeTimerRef.current = window.setTimeout(
+          () => step(performance.now()),
+          FADE_STEP_MS,
+        );
+      } else {
+        fadeTimerRef.current = null;
+        onDone?.();
+      }
+    };
+    step(performance.now());
+  }
+
+  function startFadeIn(): void {
+    fadeTo(volumeRef.current, 700);
+  }
+
+  function fadeOut(duration: number, onDone: () => void): void {
+    fadeTo(0, duration, onDone);
+  }
+
+  function togglePlay(): void {
     if (playing) {
-      void audio.play().catch(() => setPlaying(false));
+      fadeOut(320, () => setPlaying(false));
     } else {
+      setPlaying(true);
+    }
+  }
+
+  function nextTrack(): void {
+    const change = () =>
+      setTrackIndex((current) => (current + 1) % playlist.length);
+    if (playing) fadeOut(180, change);
+    else change();
+  }
+
+  function previousTrack(): void {
+    const change = () =>
+      setTrackIndex(
+        (current) => (current - 1 + playlist.length) % playlist.length,
+      );
+    if (playing) fadeOut(180, change);
+    else change();
+  }
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    stopFade();
+    if (playing) {
+      audio.volume = 0;
+      void audio
+        .play()
+        .then(startFadeIn)
+        .catch(() => setPlaying(false));
+    } else {
+      audio.volume = volumeRef.current;
       audio.pause();
     }
   }, [playing, trackIndex]);
 
-  function togglePlay(): void {
-    setPlaying((current) => !current);
-  }
-
-  function nextTrack(): void {
-    setTrackIndex((current) => (current + 1) % playlist.length);
-    setFailed(false);
-  }
-
-  function previousTrack(): void {
-    setTrackIndex(
-      (current) => (current - 1 + playlist.length) % playlist.length,
-    );
-    setFailed(false);
+  function handleEnded(): void {
+    if (playlist.length === 1) {
+      // 单曲循环：回到开头继续播
+      const audio = audioRef.current;
+      if (!audio) return;
+      audio.currentTime = 0;
+      void audio.play().then(startFadeIn).catch(() => setPlaying(false));
+    } else {
+      nextTrack();
+    }
   }
 
   return (
@@ -64,7 +137,7 @@ export function MusicPlayer() {
         onLoadedMetadata={(event) =>
           setDuration(event.currentTarget.duration)
         }
-        onEnded={nextTrack}
+        onEnded={handleEnded}
         onError={() => {
           setPlaying(false);
           setFailed(true);
@@ -83,6 +156,7 @@ export function MusicPlayer() {
         <div className="music-panel" aria-label="音乐播放器">
           <p className="music-title">{track.title}</p>
           <p className="music-artist">{track.artist}</p>
+          <p className="music-loop-note">循环播放 · 渐入渐出</p>
 
           {failed ? (
             <p className="music-missing">

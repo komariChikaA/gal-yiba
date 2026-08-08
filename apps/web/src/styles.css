@@ -2637,3 +2637,9 @@ button {
   background: linear-gradient(135deg, var(--coral-soft), var(--mint-soft));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--coral) 40%, transparent);
 }
+.music-loop-note {
+  margin: 2px 0 10px;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+}
