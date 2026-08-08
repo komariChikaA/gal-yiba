@@ -100,3 +100,51 @@ docker compose logs --tail=100 app
 ```
 
 部署环境的 `.env` 权限应保持为 `600`，不得提交到 Git。
+
+## 定时同步（批量调度）
+
+数据同步本身是 CLI（`sync-catalog`/`refresh-catalog`），服务器上用 cron 或 systemd timer 定期执行即可。
+以下 cron 示例每天 UTC 04:00 增量刷新 VNDB，并在每周日 UTC 03:00 重建 Bangumi 映射建议（登录后执行 `crontab -e` 添加）：
+
+```cron
+0 4 * * * cd /opt/gal-yiba && docker compose exec -T app node apps/server/dist/cli/refresh-catalog.js vndb >> /var/log/gal-yiba-sync.log 2>&1
+0 3 * * 0 cd /opt/gal-yiba && docker compose exec -T app node apps/server/dist/cli/review-mappings.js rebuild >> /var/log/gal-yiba-sync.log 2>&1
+```
+
+日志轮转（`/etc/logrotate.d/gal-yiba`）：
+
+```text
+/var/log/gal-yiba-sync.log {
+  weekly
+  rotate 8
+  compress
+  missingok
+  notifempty
+}
+```
+
+## 监控
+
+- 存活探活：对 `https://galyiba.kajimi.cc/api/health` 做外部 HTTP 探测（UptimeRobot / cron curl），返回非 200 或超时即告警。
+- 进程与资源：`docker compose ps` 定期检查容器健康状态；`docker stats` 观察内存（房间在单进程内存中）。
+- 容器日志：`docker compose logs --tail=200 app` 排查启动或运行期错误。
+
+## SSH 加固（强烈建议）
+
+服务器近期被暴力爆破打满连接槽导致 SSH 间歇性不可用，建议：
+
+```bash
+apt-get install -y fail2ban
+systemctl enable --now fail2ban
+```
+
+并改用密钥登录后关闭密码登录：
+
+```bash
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+# 把本机公钥写入 ~/.ssh/authorized_keys 后：
+sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+systemctl restart ssh
+```
+
+> 关闭密码登录前务必确认密钥能登录，否则会把自己锁在外面。
