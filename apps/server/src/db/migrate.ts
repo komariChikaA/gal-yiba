@@ -12,6 +12,7 @@ export interface Migration {
 export const migrations: Migration[] = [
   { version: 1, filename: "001_initial.sql" },
   { version: 2, filename: "002_source_title_keys.sql" },
+  { version: 3, filename: "003_match_players.sql" },
 ];
 
 function titleKeys(record: SourceVisualNovel): string[] {

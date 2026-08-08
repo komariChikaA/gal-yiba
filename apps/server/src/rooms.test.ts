@@ -368,3 +368,105 @@ describe("rematch in the same room", () => {
     ).toBe("lobby");
   });
 });
+
+describe("stable player identity and match reports", () => {
+  const hostId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const guestId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  it("keeps a client-provided player id across create and join", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel", "standard", hostId);
+    const guest = registry.join(host.room.code, "玩家二", guestId);
+    expect(host.session.playerId).toBe(hostId);
+    expect(guest.session.playerId).toBe(guestId);
+    expect(host.room.players.map((player) => player.id)).toContain(hostId);
+    expect(guest.room.players.map((player) => player.id)).toContain(guestId);
+  });
+
+  it("exposes a finished single-round match report", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel", "standard", hostId);
+    const guest = registry.join(host.room.code, "玩家二", guestId);
+    registry.setReady(host.room.code, guestId, true);
+    const catalog = [visualNovel("answer")];
+    registry.start(host.room.code, hostId, catalog, {
+      random: () => 0,
+      now: new Date("2026-08-08T00:00:00.000Z"),
+    });
+    expect(registry.getMatchReport(host.room.code)).toBeNull();
+    registry.submitPlayerGuess(
+      host.room.code,
+      guestId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:00:05.000Z"),
+    );
+    const report = registry.getMatchReport(host.room.code);
+    expect(report).not.toBeNull();
+    expect(report?.mode).toBe("duel");
+    expect(report?.winnerPlayerId).toBe(guestId);
+    expect(report?.rounds).toHaveLength(1);
+    expect(report?.rounds[0]?.winnerPlayerId).toBe(guestId);
+    expect(report?.rounds[0]?.answerId).toBe("answer");
+    expect(report?.players).toEqual([
+      { playerId: hostId, nickname: "房主", wins: 0 },
+      { playerId: guestId, nickname: "玩家二", wins: 1 },
+    ]);
+  });
+
+  it("reports every round of a best-of match with its winner", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel", "standard", hostId);
+    const guest = registry.join(host.room.code, "玩家二", guestId);
+    registry.setReady(host.room.code, guestId, true);
+    registry.updateRules(host.room.code, hostId, {
+      ...host.room.rules,
+      bestOf: 3,
+    });
+    const catalog = [visualNovel("answer")];
+    registry.start(host.room.code, hostId, catalog, {
+      random: () => 0,
+      now: new Date("2026-08-08T00:00:00.000Z"),
+    });
+    registry.submitPlayerGuess(
+      host.room.code,
+      guestId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:00:05.000Z"),
+    );
+    registry.submitPlayerGuess(
+      host.room.code,
+      guestId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:01:05.000Z"),
+    );
+    const report = registry.getMatchReport(host.room.code);
+    expect(report?.rounds).toHaveLength(2);
+    expect(report?.rounds.map((round) => round.winnerPlayerId)).toEqual([
+      guestId,
+      guestId,
+    ]);
+    expect(report?.winnerPlayerId).toBe(guestId);
+  });
+
+  it("clears the round history after a rematch", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel", "standard", hostId);
+    const guest = registry.join(host.room.code, "玩家二", guestId);
+    registry.setReady(host.room.code, guestId, true);
+    const catalog = [visualNovel("answer")];
+    registry.start(host.room.code, hostId, catalog, { random: () => 0 });
+    registry.submitPlayerGuess(
+      host.room.code,
+      guestId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:00:05.000Z"),
+    );
+    expect(registry.getMatchReport(host.room.code)).not.toBeNull();
+    registry.rematch(host.room.code, hostId);
+    expect(registry.getMatchReport(host.room.code)).toBeNull();
+  });
+});

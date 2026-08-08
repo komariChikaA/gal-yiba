@@ -54,11 +54,47 @@ interface MutableRound {
   playerGames: Map<string, GameSession>;
 }
 
+interface MutableRoundRecord {
+  roundNumber: number;
+  answer: VisualNovel;
+  startedAt: string;
+  finishedAt: string | null;
+  winnerPlayerId: string | null;
+}
+
 interface MutableRoom extends Omit<RoomSnapshot, "players" | "round" | "scores"> {
   players: Map<string, RoomPlayer>;
   round: MutableRound | null;
   scores: Map<string, number>;
   catalog: VisualNovel[];
+  roundHistory: MutableRoundRecord[];
+}
+
+export interface MatchRoundReport {
+  roundNumber: number;
+  answerId: string;
+  answerSnapshot: { id: string; title: string };
+  startedAt: string;
+  finishedAt: string | null;
+  winnerPlayerId: string | null;
+}
+
+export interface MatchPlayerReport {
+  playerId: string;
+  nickname: string;
+  wins: number;
+}
+
+export interface MatchReport {
+  roomCode: string;
+  mode: GameMode;
+  rules: GameRules;
+  status: "finished";
+  startedAt: string;
+  finishedAt: string;
+  winnerPlayerId: string | null;
+  players: MatchPlayerReport[];
+  rounds: MatchRoundReport[];
 }
 
 export interface PlayerSession {
@@ -132,16 +168,16 @@ export class RoomRegistry {
     string,
     { roomCode: string; playerId: string }
   >();
-
   create(
     nickname: string,
     mode: GameMode = "race",
     fameTier: FameTier = "standard",
+    playerIdInput?: string,
   ): { room: RoomSnapshot; session: PlayerSession } {
     let code = createRoomCode();
     while (this.rooms.has(code)) code = createRoomCode();
 
-    const playerId = randomUUID();
+    const playerId = playerIdInput ?? randomUUID();
     const reconnectToken = randomUUID();
     const player: RoomPlayer = {
       id: playerId,
@@ -164,6 +200,7 @@ export class RoomRegistry {
       matchWinnerPlayerId: null,
       scores: new Map([[playerId, 0]]),
       catalog: [],
+      roundHistory: [],
       revision: 1,
     };
     this.rooms.set(code, room);
@@ -174,6 +211,7 @@ export class RoomRegistry {
   join(
     codeInput: string,
     nickname: string,
+    playerIdInput?: string,
   ): { room: RoomSnapshot; session: PlayerSession } {
     const code = codeInput.trim().toUpperCase();
     const room = this.requireRoom(code);
@@ -182,7 +220,7 @@ export class RoomRegistry {
     const capacity = room.rules.mode === "duel" ? 2 : 8;
     if (room.players.size >= capacity) throw new Error("ROOM_FULL");
 
-    const playerId = randomUUID();
+    const playerId = playerIdInput ?? randomUUID();
     const reconnectToken = randomUUID();
     room.players.set(playerId, {
       id: playerId,
@@ -305,6 +343,13 @@ export class RoomRegistry {
       answer: structuredClone(baseGame.answer),
       playerGames,
     };
+    room.roundHistory.push({
+      roundNumber: room.round.roundNumber,
+      answer: structuredClone(room.round.answer),
+      startedAt: baseGame.startedAt,
+      finishedAt: null,
+      winnerPlayerId: null,
+    });
     room.phase = "active";
     room.winnerPlayerId = null;
     room.revision += 1;
@@ -316,6 +361,11 @@ export class RoomRegistry {
     options: { forfeit?: boolean } = {},
   ): void {
     const winnerId = room.winnerPlayerId;
+    const currentRecord = room.roundHistory[room.roundHistory.length - 1];
+    if (currentRecord) {
+      currentRecord.finishedAt = now.toISOString();
+      currentRecord.winnerPlayerId = winnerId;
+    }
     if (winnerId) {
       room.scores.set(winnerId, (room.scores.get(winnerId) ?? 0) + 1);
     }
@@ -341,12 +391,14 @@ export class RoomRegistry {
     this.startRound(room, { now });
   }
 
+
   rematch(code: string, playerId: string): RoomSnapshot {
     const room = this.requireRoom(code);
     if (room.phase !== "finished") throw new Error("ROOM_NOT_FINISHED");
     if (room.hostPlayerId !== playerId) throw new Error("HOST_ONLY");
     room.phase = "lobby";
     room.round = null;
+    room.roundHistory = [];
     room.winnerPlayerId = null;
     room.matchWinnerPlayerId = null;
     for (const player of room.players.values()) player.ready = false;
@@ -414,6 +466,39 @@ export class RoomRegistry {
 
   get(code: string): RoomSnapshot {
     return snapshot(this.requireRoom(code.trim().toUpperCase()));
+  }
+
+  getMatchReport(codeInput: string): MatchReport | null {
+    const room = this.rooms.get(codeInput.trim().toUpperCase());
+    if (!room || room.phase !== "finished" || room.roundHistory.length === 0)
+      return null;
+    const lastRound = room.roundHistory[room.roundHistory.length - 1];
+    const firstRound = room.roundHistory[0];
+    return {
+      roomCode: room.code,
+      mode: room.rules.mode,
+      rules: cloneRules(room.rules),
+      status: "finished",
+      startedAt: firstRound?.startedAt ?? "",
+      finishedAt: lastRound?.finishedAt ?? new Date().toISOString(),
+      winnerPlayerId: room.winnerPlayerId,
+      players: [...room.players].map(([playerId, player]) => ({
+        playerId,
+        nickname: player.nickname,
+        wins: room.scores.get(playerId) ?? 0,
+      })),
+      rounds: room.roundHistory.map((record) => ({
+        roundNumber: record.roundNumber,
+        answerId: record.answer.id,
+        answerSnapshot: {
+          id: record.answer.id,
+          title: record.answer.title,
+        },
+        startedAt: record.startedAt,
+        finishedAt: record.finishedAt,
+        winnerPlayerId: record.winnerPlayerId,
+      })),
+    };
   }
 
   expire(codeInput: string, now = new Date()): RoomSnapshot | null {

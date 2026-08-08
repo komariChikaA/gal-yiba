@@ -13,6 +13,7 @@ import {
   fameTierThresholds,
   publicGameSession,
   selectImportantTags,
+  type GameMode,
   type GameRules,
 } from "@gal-yiba/shared";
 import {
@@ -22,6 +23,7 @@ import {
 } from "./db/index.js";
 import { RoomRegistry, defaultRules } from "./rooms.js";
 import { DailyRegistry } from "./services/daily.js";
+import { MatchRecorder } from "./services/match-recorder.js";
 import { searchCatalog } from "./services/catalog-search.js";
 
 const port = Number(process.env.PORT ?? 3000);
@@ -38,20 +40,23 @@ if (databasePool) await migrateDatabase(databasePool);
 const catalogRepository = databasePool
   ? new CatalogRepository(databasePool)
   : null;
+const matchRecorder = new MatchRecorder(databasePool);
 
 async function loadCatalog() {
   return catalogRepository?.listVisualNovels() ?? [];
 }
-
 const nicknameSchema = z.string().trim().min(1).max(20);
+const playerIdSchema = z.string().uuid().optional();
 const joinSchema = z.object({
   code: z.string().trim().length(5),
   nickname: nicknameSchema,
+  playerId: playerIdSchema,
 });
 const createRoomSchema = z.object({
   nickname: nicknameSchema,
   mode: z.enum(["solo", "duel", "race"]),
   fameTier: z.enum(["novice", "standard", "veteran"]),
+  playerId: playerIdSchema,
 });
 const reconnectSchema = z.object({
   code: z.string().trim().length(5),
@@ -120,11 +125,22 @@ async function broadcastRoomState(roomCode: string): Promise<void> {
   }
 }
 
+async function persistMatchIfFinished(roomCode: string): Promise<void> {
+  try {
+    await matchRecorder.record(rooms.getMatchReport(roomCode));
+  } catch (error) {
+    console.error("match recording failed:", error);
+  }
+}
+
 function scheduleRoomExpiry(roomCode: string, deadlineAt: string): void {
   const delay = Math.max(0, Date.parse(deadlineAt) - Date.now()) + 50;
   setTimeout(() => {
     const expiredRoom = rooms.expire(roomCode);
-    if (expiredRoom) void broadcastRoomState(expiredRoom.code);
+    if (expiredRoom) {
+      void broadcastRoomState(expiredRoom.code);
+      void persistMatchIfFinished(expiredRoom.code);
+    }
   }, delay).unref();
 }
 
@@ -254,6 +270,26 @@ app.post("/api/daily/guess", async (request, response, next) => {
   }
 });
 
+app.get("/api/leaderboard", async (request, response, next) => {
+  try {
+    const rawMode = String(request.query.mode ?? "");
+    const mode: GameMode | undefined =
+      rawMode === "solo" || rawMode === "duel" || rawMode === "race"
+        ? rawMode
+        : undefined;
+    const limit = Math.min(
+      50,
+      Math.max(1, Number(request.query.limit ?? 20) || 20),
+    );
+    const items = await matchRecorder.leaderboard(
+      mode ? { mode, limit } : { limit },
+    );
+    response.json({ items });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.use(
   "/api",
   (
@@ -282,7 +318,12 @@ io.on("connection", (socket) => {
   socket.on("room:create", async (payload: unknown, acknowledge) => {
     try {
       const input = createRoomSchema.parse(payload);
-      const result = rooms.create(input.nickname, input.mode, input.fameTier);
+      const result = rooms.create(
+        input.nickname,
+        input.mode,
+        input.fameTier,
+        input.playerId,
+      );
       socket.join(result.room.code);
       bindSocketSession(socket, result.room.code, result.session.playerId);
       acknowledge({ ok: true, ...result });
@@ -302,7 +343,12 @@ io.on("connection", (socket) => {
       await socket.leave(identity.roomCode);
       delete socket.data.roomCode;
       delete socket.data.playerId;
-      if (room) await broadcastRoomState(room.code);
+      if (room) {
+        await broadcastRoomState(room.code);
+        await persistMatchIfFinished(room.code);
+      } else {
+        matchRecorder.forget(identity.roomCode);
+      }
       acknowledge({ ok: true });
     } catch (error) {
       acknowledge({
@@ -315,8 +361,9 @@ io.on("connection", (socket) => {
   socket.on("room:rematch", async (_payload: unknown, acknowledge) => {
     try {
       const identity = socketIdentity(socket);
+      await persistMatchIfFinished(identity.roomCode);
       const room = rooms.rematch(identity.roomCode, identity.playerId);
-      acknowledge({ ok: true, room });
+      matchRecorder.forget(identity.roomCode);
       await broadcastRoomState(room.code);
     } catch (error) {
       acknowledge({
@@ -329,7 +376,7 @@ io.on("connection", (socket) => {
   socket.on("room:join", (payload: unknown, acknowledge) => {
     try {
       const input = joinSchema.parse(payload);
-      const result = rooms.join(input.code, input.nickname);
+      const result = rooms.join(input.code, input.nickname, input.playerId);
       socket.join(result.room.code);
       bindSocketSession(socket, result.room.code, result.session.playerId);
       acknowledge({ ok: true, ...result });
@@ -432,6 +479,7 @@ io.on("connection", (socket) => {
           catalog,
         );
         await broadcastRoomState(result.room.code);
+        await persistMatchIfFinished(result.room.code);
         acknowledge({ ok: true, ...result });
       } catch (error) {
         acknowledge({

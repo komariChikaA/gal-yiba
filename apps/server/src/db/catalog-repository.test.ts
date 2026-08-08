@@ -52,7 +52,11 @@ describe("database migrations", () => {
     const result = await pool.query<{ version: number }>(
       "SELECT version FROM schema_migrations",
     );
-    expect(result.rows).toEqual([{ version: 1 }, { version: 2 }]);
+    expect(result.rows).toEqual([
+      { version: 1 },
+      { version: 2 },
+      { version: 3 },
+    ]);
   });
 
   it("backfills normalized alias keys for records created before migration 2", async () => {

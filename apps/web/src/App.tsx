@@ -186,6 +186,48 @@ interface RoomFailure {
 type RoomResponse = RoomSuccess | RoomFailure;
 type ColorTheme = "day" | "night";
 
+interface LeaderboardEntry {
+  playerId: string;
+  nickname: string;
+  wins: number;
+  matches: number;
+}
+
+const PLAYER_ID_KEY = "gal-yiba-player-id";
+
+function loadPlayerId(): string {
+  const stored = localStorage.getItem(PLAYER_ID_KEY);
+  if (
+    stored &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      stored,
+    )
+  ) {
+    return stored;
+  }
+  let id: string;
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    id = crypto.randomUUID();
+  } else {
+    const hex = "0123456789abcdef";
+    let result = "";
+    for (let index = 0; index < 36; index += 1) {
+      if (index === 8 || index === 13 || index === 18 || index === 23) {
+        result += "-";
+      } else if (index === 14) {
+        result += "4";
+      } else if (index === 19) {
+        result += hex[8 + Math.floor(Math.random() * 4)];
+      } else {
+        result += hex[Math.floor(Math.random() * 16)];
+      }
+    }
+    id = result;
+  }
+  localStorage.setItem(PLAYER_ID_KEY, id);
+  return id;
+}
+
 export function App() {
   const [colorTheme, setColorTheme] = useState<ColorTheme>(() => {
     return localStorage.getItem("gal-yiba-color-theme") === "night"
@@ -193,6 +235,7 @@ export function App() {
       : "day";
   });
   const [connected, setConnected] = useState(socket.connected);
+  const [playerId] = useState(() => loadPlayerId());
   const [nickname, setNickname] = useState("");
   const [selectedMode, setSelectedMode] = useState<GameMode>("solo");
   const [selectedFameTier, setSelectedFameTier] =
@@ -203,9 +246,14 @@ export function App() {
   const [joinCode, setJoinCode] = useState("");
   const [room, setRoom] = useState<RoomSnapshot | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [selected, setSelected] = useState<ComparisonKey[]>([
-    ...defaultComparisonKeys,
-  ]);
+  const [clockNow, setClockNow] = useState(() => Date.now());
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardMode, setLeaderboardMode] = useState<
+    "all" | GameMode
+  >("all");
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(
+    null,
+  );
   const [error, setError] = useState("");
   const [game, setGame] = useState<PublicGameSession | null>(null);
   const [daily, setDaily] = useState<DailyGame | null>(null);
@@ -214,9 +262,11 @@ export function App() {
   const [availableTags, setAvailableTags] = useState<
     Array<{ name: string; count: number }>
   >([]);
+  const [selected, setSelected] = useState<ComparisonKey[]>(
+    [...defaultComparisonKeys],
+  );
   const [includedTagInput, setIncludedTagInput] = useState("");
   const [customTag, setCustomTag] = useState("");
-  const [clockNow, setClockNow] = useState(() => Date.now());
 
   const isHost = room != null && session?.playerId === room.hostPlayerId;
   const currentPlayer = room?.players.find(
@@ -276,6 +326,21 @@ export function App() {
       .then((body) => setFameCounts(body.counts))
       .catch(() => setFameCounts(null));
   }, []);
+
+  useEffect(() => {
+    if (!showLeaderboard) return;
+    setLeaderboard(null);
+    const controller = new AbortController();
+    const query = leaderboardMode === "all" ? "" : `?mode=${leaderboardMode}`;
+    void fetch(`/api/leaderboard${query}`, { signal: controller.signal })
+      .then(
+        (response) =>
+          response.json() as Promise<{ items: LeaderboardEntry[] }>,
+      )
+      .then((body) => setLeaderboard(body.items))
+      .catch(() => setLeaderboard([]));
+    return () => controller.abort();
+  }, [showLeaderboard, leaderboardMode]);
 
   useEffect(() => {
     if (room?.round && game) window.scrollTo({ top: 0, behavior: "instant" });
@@ -412,11 +477,11 @@ export function App() {
         nickname: nickname.trim(),
         mode: selectedMode,
         fameTier: selectedFameTier,
+        playerId,
       },
       handleRoomResponse,
     );
   }
-
   function leaveRoom() {
     socket.emit(
       "room:leave",
@@ -454,7 +519,11 @@ export function App() {
   function joinRoom() {
     socket.emit(
       "room:join",
-      { nickname: nickname.trim(), code: joinCode.trim().toUpperCase() },
+      {
+        nickname: nickname.trim(),
+        code: joinCode.trim().toUpperCase(),
+        playerId,
+      },
       handleRoomResponse,
     );
   }
@@ -668,6 +737,13 @@ export function App() {
         <nav>
           <a href="#modes">玩法</a>
           <a href="#data">数据</a>
+          <button
+            className="nav-link"
+            type="button"
+            onClick={() => setShowLeaderboard(true)}
+          >
+            排行榜
+          </button>
           <button
             className="theme-toggle"
             type="button"
@@ -1409,6 +1485,65 @@ export function App() {
         <b>旮一把</b>
         <span>第一阶段原型 · 数据与规则均可追踪</span>
       </footer>
+
+      {showLeaderboard && (
+        <div className="leaderboard-overlay" role="dialog" aria-label="排行榜">
+          <div className="leaderboard-panel">
+            <header>
+              <h2>排行榜</h2>
+              <button
+                type="button"
+                className="panel-close"
+                onClick={() => setShowLeaderboard(false)}
+                aria-label="关闭排行榜"
+              >
+                ×
+              </button>
+            </header>
+            <div className="leaderboard-filters">
+              {(["all", "solo", "duel", "race"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={leaderboardMode === mode ? "active" : ""}
+                  onClick={() => setLeaderboardMode(mode)}
+                >
+                  {mode === "all"
+                    ? "全部"
+                    : mode === "solo"
+                      ? "单人"
+                      : mode === "duel"
+                        ? "1v1"
+                        : "多人"}
+                </button>
+              ))}
+            </div>
+            {leaderboard === null ? (
+              <p className="leaderboard-empty">加载中……</p>
+            ) : leaderboard.length === 0 ? (
+              <p className="leaderboard-empty">
+                还没有对战记录——去开一局吧。
+              </p>
+            ) : (
+              <ol className="leaderboard-list">
+                {leaderboard.map((entry, index) => (
+                  <li
+                    key={entry.playerId}
+                    className={
+                      entry.playerId === playerId ? "self" : undefined
+                    }
+                  >
+                    <i>{index + 1}</i>
+                    <b>{entry.nickname}</b>
+                    <span>{entry.wins} 胜</span>
+                    <small>{entry.matches} 场</small>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
