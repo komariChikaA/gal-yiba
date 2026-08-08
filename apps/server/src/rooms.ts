@@ -30,6 +30,8 @@ export interface RoomSnapshot {
   rules: GameRules;
   round: RoomRoundSnapshot | null;
   winnerPlayerId: string | null;
+  matchWinnerPlayerId: string | null;
+  scores: Array<{ playerId: string; wins: number }>;
   revision: number;
 }
 
@@ -52,9 +54,11 @@ interface MutableRound {
   playerGames: Map<string, GameSession>;
 }
 
-interface MutableRoom extends Omit<RoomSnapshot, "players" | "round"> {
+interface MutableRoom extends Omit<RoomSnapshot, "players" | "round" | "scores"> {
   players: Map<string, RoomPlayer>;
   round: MutableRound | null;
+  scores: Map<string, number>;
+  catalog: VisualNovel[];
 }
 
 export interface PlayerSession {
@@ -116,6 +120,8 @@ function snapshot(room: MutableRoom): RoomSnapshot {
         }
       : null,
     winnerPlayerId: room.winnerPlayerId,
+    matchWinnerPlayerId: room.matchWinnerPlayerId,
+    scores: [...room.scores].map(([playerId, wins]) => ({ playerId, wins })),
     revision: room.revision,
   };
 }
@@ -155,6 +161,9 @@ export class RoomRegistry {
       },
       round: null,
       winnerPlayerId: null,
+      matchWinnerPlayerId: null,
+      scores: new Map([[playerId, 0]]),
+      catalog: [],
       revision: 1,
     };
     this.rooms.set(code, room);
@@ -181,6 +190,7 @@ export class RoomRegistry {
       ready: false,
       connected: true,
     });
+    room.scores.set(playerId, 0);
     room.revision += 1;
     this.reconnectTokens.set(reconnectToken, { roomCode: code, playerId });
     return { room: snapshot(room), session: { playerId, reconnectToken } };
@@ -270,25 +280,65 @@ export class RoomRegistry {
       throw new Error("PLAYERS_NOT_READY");
     }
 
-    const baseGame = createGameSession(catalog, room.rules, options);
+    room.catalog = catalog;
+    this.startRound(room, options);
+    return snapshot(room);
+  }
+
+  private startRound(
+    room: MutableRoom,
+    options: { now?: Date; random?: () => number } = {},
+  ): void {
+    const baseGame = createGameSession(room.catalog, room.rules, options);
     const playerGames = new Map<string, GameSession>();
-    for (const player of connectedPlayers) {
-      playerGames.set(player.id, {
+    for (const [playerId, player] of room.players) {
+      if (!player.connected) continue;
+      playerGames.set(playerId, {
         ...structuredClone(baseGame),
-        id: `${baseGame.id}:${player.id}`,
+        id: `${baseGame.id}:${playerId}`,
         guesses: [],
       });
       player.ready = false;
     }
     room.round = {
-      roundNumber: 1,
+      roundNumber: (room.round?.roundNumber ?? 0) + 1,
       answer: structuredClone(baseGame.answer),
       playerGames,
     };
     room.phase = "active";
     room.winnerPlayerId = null;
     room.revision += 1;
-    return snapshot(room);
+  }
+
+  private settleRound(
+    room: MutableRoom,
+    now: Date,
+    options: { forfeit?: boolean } = {},
+  ): void {
+    const winnerId = room.winnerPlayerId;
+    if (winnerId) {
+      room.scores.set(winnerId, (room.scores.get(winnerId) ?? 0) + 1);
+    }
+    const bestOfActive = room.rules.mode !== "solo" && room.rules.bestOf > 1;
+    const target = Math.ceil(room.rules.bestOf / 2);
+    const matchWinner =
+      bestOfActive &&
+      winnerId !== null &&
+      (room.scores.get(winnerId) ?? 0) >= target
+        ? winnerId
+        : null;
+    const roundsPlayed = room.round?.roundNumber ?? 0;
+    if (
+      !bestOfActive ||
+      options.forfeit ||
+      matchWinner ||
+      roundsPlayed >= room.rules.bestOf
+    ) {
+      room.phase = "finished";
+      room.matchWinnerPlayerId = winnerId;
+      return;
+    }
+    this.startRound(room, { now });
   }
 
   submitPlayerGuess(
@@ -324,13 +374,13 @@ export class RoomRegistry {
           });
         }
       }
-      room.phase = "finished";
+      this.settleRound(room, now);
     } else if (
       [...room.round.playerGames.values()].every(
         (playerGame) => playerGame.status !== "active",
       )
     ) {
-      room.phase = "finished";
+      this.settleRound(room, now);
     }
     room.revision += 1;
     return {
@@ -364,8 +414,8 @@ export class RoomRegistry {
         finishedAt: now.toISOString(),
       });
     }
-    room.phase = "finished";
     room.winnerPlayerId = null;
+    this.settleRound(room, now);
     room.revision += 1;
     return snapshot(room);
   }
@@ -381,6 +431,7 @@ export class RoomRegistry {
     if (!room.players.has(playerId)) return snapshot(room);
 
     room.players.delete(playerId);
+    room.scores.delete(playerId);
     room.round?.playerGames.delete(playerId);
     for (const [token, identity] of this.reconnectTokens) {
       if (identity.roomCode === code && identity.playerId === playerId) {
@@ -408,7 +459,7 @@ export class RoomRegistry {
         finishedAt: now.toISOString(),
       });
       room.winnerPlayerId = winnerId;
-      room.phase = "finished";
+      this.settleRound(room, now, { forfeit: true });
     }
     room.revision += 1;
     return snapshot(room);

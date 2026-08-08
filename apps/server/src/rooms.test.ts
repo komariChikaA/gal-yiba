@@ -209,3 +209,85 @@ describe("RoomRegistry", () => {
     expect(expired?.round?.answer?.id).toBe("answer");
   });
 });
+
+describe("best-of rounds", () => {
+  const catalog = [visualNovel("answer")];
+
+  function startDuel(registry: RoomRegistry, bestOf: 1 | 3 | 5 | 7) {
+    const host = registry.create("房主", "duel");
+    const guest = registry.join(host.room.code, "玩家二");
+    registry.setReady(host.room.code, guest.session.playerId, true);
+    registry.updateRules(host.room.code, host.session.playerId, {
+      ...host.room.rules,
+      bestOf,
+    });
+    registry.start(host.room.code, host.session.playerId, catalog, {
+      random: () => 0,
+      now: new Date("2026-08-08T00:00:00.000Z"),
+    });
+    return { host, guest };
+  }
+
+  it("advances rounds until a player reaches the match target", () => {
+    const registry = new RoomRegistry();
+    const { host, guest } = startDuel(registry, 3);
+    const first = registry.submitPlayerGuess(
+      host.room.code,
+      guest.session.playerId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:00:05.000Z"),
+    );
+    expect(first.room.phase).toBe("active");
+    expect(first.room.round?.roundNumber).toBe(2);
+    expect(first.room.scores).toEqual([
+      { playerId: host.session.playerId, wins: 0 },
+      { playerId: guest.session.playerId, wins: 1 },
+    ]);
+    expect(first.room.matchWinnerPlayerId).toBeNull();
+
+    const second = registry.submitPlayerGuess(
+      host.room.code,
+      guest.session.playerId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:01:05.000Z"),
+    );
+    expect(second.room.phase).toBe("finished");
+    expect(second.room.round?.roundNumber).toBe(2);
+    expect(second.room.matchWinnerPlayerId).toBe(guest.session.playerId);
+    expect(second.room.scores).toEqual([
+      { playerId: host.session.playerId, wins: 0 },
+      { playerId: guest.session.playerId, wins: 2 },
+    ]);
+  });
+
+  it("ends the match by forfeit when the opponent leaves", () => {
+    const registry = new RoomRegistry();
+    const { host, guest } = startDuel(registry, 3);
+    const remaining = registry.leave(host.room.code, guest.session.playerId);
+    expect(remaining?.phase).toBe("finished");
+    expect(remaining?.matchWinnerPlayerId).toBe(host.session.playerId);
+    expect(remaining?.scores).toEqual([
+      { playerId: host.session.playerId, wins: 1 },
+    ]);
+  });
+
+  it("never starts more rounds than the configured best of", () => {
+    const registry = new RoomRegistry();
+    const { host, guest } = startDuel(registry, 3);
+    for (let round = 1; round <= 3; round += 1) {
+      const expired = registry.expire(
+        host.room.code,
+        new Date(
+          `2026-08-08T00:${String(round * 5).padStart(2, "0")}:00.000Z`,
+        ),
+      );
+      expect(expired?.phase).toBe(round < 3 ? "active" : "finished");
+      expect(expired?.round?.roundNumber).toBe(
+        round < 3 ? round + 1 : round,
+      );
+    }
+    expect(registry.get(host.room.code).matchWinnerPlayerId).toBeNull();
+  });
+});

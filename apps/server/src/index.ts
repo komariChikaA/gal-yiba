@@ -11,6 +11,7 @@ import {
   comparisonKeys,
   fameTierForVisualNovel,
   fameTierThresholds,
+  publicGameSession,
   selectImportantTags,
   type GameRules,
 } from "@gal-yiba/shared";
@@ -20,6 +21,7 @@ import {
   migrateDatabase,
 } from "./db/index.js";
 import { RoomRegistry, defaultRules } from "./rooms.js";
+import { DailyRegistry } from "./services/daily.js";
 import { searchCatalog } from "./services/catalog-search.js";
 
 const port = Number(process.env.PORT ?? 3000);
@@ -30,6 +32,7 @@ const io = new Server(httpServer, {
   cors: { origin: webOrigin, credentials: true },
 });
 const rooms = new RoomRegistry();
+const dailyGames = new DailyRegistry();
 const databasePool = process.env.DATABASE_URL ? createDatabasePool() : null;
 if (databasePool) await migrateDatabase(databasePool);
 const catalogRepository = databasePool
@@ -93,13 +96,16 @@ function socketIdentity(socket: { data: Record<string, unknown> }): {
   ) {
     throw new Error("SOCKET_SESSION_REQUIRED");
   }
-  return { roomCode: socket.data.roomCode, playerId: socket.data.playerId };
+  return {
+    roomCode: socket.data.roomCode,
+    playerId: socket.data.playerId,
+  };
 }
-
 async function broadcastRoomState(roomCode: string): Promise<void> {
   const room = rooms.get(roomCode);
   io.to(roomCode).emit("room:updated", room);
   if (!room.round) return;
+  scheduleRoomExpiry(room.code, room.round.deadlineAt);
   const sockets = await io.in(roomCode).fetchSockets();
   for (const roomSocket of sockets) {
     try {
@@ -197,6 +203,70 @@ app.get("/api/catalog/fame-tiers", async (_request, response, next) => {
     next(error);
   }
 });
+
+const dailyRules: GameRules = {
+  ...defaultRules,
+  mode: "solo",
+};
+
+app.get("/api/daily", async (request, response, next) => {
+  try {
+    const catalog = await loadCatalog();
+    if (catalog.length === 0) throw new Error("CATALOG_EMPTY");
+    const playerToken = String(request.header("x-daily-player") ?? "").trim();
+    const result = dailyGames.getOrCreate(
+      playerToken || null,
+      catalog,
+      dailyRules,
+      new Date(),
+    );
+    if (!playerToken) response.setHeader("X-Daily-Player", result.playerToken);
+    response.json({
+      date: result.date,
+      rules: result.session.rules,
+      session: publicGameSession(result.session),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post("/api/daily/guess", async (request, response, next) => {
+  try {
+    const playerToken = String(request.header("x-daily-player") ?? "").trim();
+    if (!playerToken) throw new Error("DAILY_PLAYER_REQUIRED");
+    const parsedId = z
+      .string()
+      .uuid()
+      .safeParse((request.body as { visualNovelId?: unknown })?.visualNovelId);
+    if (!parsedId.success) throw new Error("INVALID_VISUAL_NOVEL_ID");
+    const outcome = dailyGames.submitGuess(
+      playerToken,
+      parsedId.data,
+      await loadCatalog(),
+      new Date(),
+    );
+    if (!outcome.ok && outcome.error !== "GAME_EXPIRED")
+      throw new Error(outcome.error);
+    response.json({ session: publicGameSession(outcome.game) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.use(
+  "/api",
+  (
+    error: unknown,
+    _request: express.Request,
+    response: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    response.status(400).json({
+      error: error instanceof Error ? error.message : "INTERNAL_ERROR",
+    });
+  },
+);
 
 if (process.env.NODE_ENV === "production") {
   const webDist =

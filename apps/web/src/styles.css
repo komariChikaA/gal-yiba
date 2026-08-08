@@ -187,6 +187,12 @@ button {
   gap: 12px;
   margin-top: 14px;
 }
+.entry-actions .daily-button {
+  grid-column: 1 / -1;
+  border-color: color-mix(in srgb, var(--coral) 60%, var(--line-strong));
+  color: var(--coral-strong);
+  background: color-mix(in srgb, var(--coral-soft) 35%, var(--surface-solid));
+}
 .entry-section {
   margin-top: 18px;
 }
@@ -815,6 +821,43 @@ button {
   grid-template-columns: 1fr 1fr;
   gap: 16px;
   margin: 22px 0;
+}
+.match-score {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin: 18px 0 0;
+}
+.match-score > span {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  border: 2px solid var(--line-strong);
+  border-radius: 13px;
+  padding: 10px 14px;
+  background: var(--surface-solid);
+}
+.match-score > span.self {
+  border-color: var(--coral);
+}
+.match-score > span.winner {
+  border-color: var(--mint);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mint) 55%, transparent);
+}
+.match-score small {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+.match-score b {
+  color: var(--coral-strong);
+  font-size: 18px;
+}
+.match-score i {
+  color: var(--muted);
+  font-size: 10px;
+  font-style: normal;
 }
 .duel-progress > div {
   min-width: 0;

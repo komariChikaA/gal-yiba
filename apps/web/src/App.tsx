@@ -127,6 +127,8 @@ interface RoomSnapshot {
     }>;
   } | null;
   winnerPlayerId: string | null;
+  matchWinnerPlayerId: string | null;
+  scores: Array<{ playerId: string; wins: number }>;
   revision: number;
 }
 
@@ -148,6 +150,12 @@ interface PublicGameSession {
   deadlineAt: string;
   attemptsLeft: number;
   answer?: { id: string; title: string };
+}
+
+interface DailyGame {
+  date: string;
+  playerToken: string | null;
+  game: PublicGameSession;
 }
 
 interface SearchItem {
@@ -200,6 +208,7 @@ export function App() {
   ]);
   const [error, setError] = useState("");
   const [game, setGame] = useState<PublicGameSession | null>(null);
+  const [daily, setDaily] = useState<DailyGame | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchItems, setSearchItems] = useState<SearchItem[]>([]);
   const [availableTags, setAvailableTags] = useState<
@@ -214,8 +223,32 @@ export function App() {
     (player) => player.id === session?.playerId,
   );
   const canEnter = nickname.trim().length > 0 && connected;
-  const remainingSeconds = game
-    ? Math.max(0, Math.ceil((Date.parse(game.deadlineAt) - clockNow) / 1000))
+  const activeGame =
+    daily?.game ?? (room?.round && game ? game : null);
+  const roundEyebrow = daily
+    ? `每日同题 · ${daily.date}`
+    : `ROUND ${room?.round?.roundNumber ?? 1}`;
+  const matchScorePlayers =
+    room && room.rules.bestOf > 1 && room.scores.length > 0
+      ? room.scores.map((score) => ({
+          playerId: score.playerId,
+          wins: score.wins,
+          nickname:
+            room.players.find((player) => player.id === score.playerId)
+              ?.nickname ?? "玩家",
+          isSelf: score.playerId === session?.playerId,
+          isWinner:
+            room.matchWinnerPlayerId === score.playerId &&
+            room.phase === "finished",
+          target: Math.ceil(room.rules.bestOf / 2),
+        }))
+      : [];
+  const matchWon =
+    room != null &&
+    room.rules.bestOf > 1 &&
+    room.matchWinnerPlayerId === session?.playerId;
+  const remainingSeconds = activeGame
+    ? Math.max(0, Math.ceil((Date.parse(activeGame.deadlineAt) - clockNow) / 1000))
     : 0;
 
   useEffect(() => {
@@ -228,11 +261,11 @@ export function App() {
   }, [colorTheme]);
 
   useEffect(() => {
-    if (!game || game.status !== "active") return;
+    if (!activeGame || activeGame.status !== "active") return;
     setClockNow(Date.now());
     const timer = window.setInterval(() => setClockNow(Date.now()), 250);
     return () => window.clearInterval(timer);
-  }, [game?.id, game?.status, game?.deadlineAt]);
+  }, [activeGame?.id, activeGame?.status, activeGame?.deadlineAt]);
 
   useEffect(() => {
     void fetch("/api/catalog/fame-tiers")
@@ -324,7 +357,11 @@ export function App() {
   ]);
 
   useEffect(() => {
-    if (!game || game.status !== "active" || searchQuery.trim().length < 1) {
+    if (
+      !activeGame ||
+      activeGame.status !== "active" ||
+      searchQuery.trim().length < 1
+    ) {
       setSearchItems([]);
       return;
     }
@@ -348,7 +385,7 @@ export function App() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [game, searchQuery]);
+  }, [activeGame, searchQuery]);
 
   function handleRoomResponse(response: RoomResponse) {
     if (!response.ok) {
@@ -503,7 +540,95 @@ export function App() {
     );
   }
 
+  async function enterDaily() {
+    try {
+      const saved = localStorage.getItem("gal-yiba-daily-player");
+      const headers: Record<string, string> = {};
+      if (saved) headers["X-Daily-Player"] = saved;
+      const response = await fetch("/api/daily", { headers });
+      const body = (await response.json()) as {
+        date: string;
+        session: PublicGameSession;
+        error?: string;
+      };
+      if (!response.ok) {
+        setError(body.error ?? "DAILY_LOAD_FAILED");
+        return;
+      }
+      const token = response.headers.get("X-Daily-Player") ?? saved ?? null;
+      if (token) localStorage.setItem("gal-yiba-daily-player", token);
+      setError("");
+      setSearchQuery("");
+      setSearchItems([]);
+      setDaily({ date: body.date, playerToken: token, game: body.session });
+    } catch {
+      setError("每日同题加载失败");
+    }
+  }
+
+  function exitDaily() {
+    setDaily(null);
+    setSearchQuery("");
+    setSearchItems([]);
+    setError("");
+  }
+
+  async function submitDailyGuess(item: SearchItem) {
+    const token = daily?.playerToken;
+    if (!token) return;
+    try {
+      const response = await fetch("/api/daily/guess", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Daily-Player": token,
+        },
+        body: JSON.stringify({ visualNovelId: item.id }),
+      });
+      const body = (await response.json()) as {
+        session: PublicGameSession;
+        error?: string;
+      };
+      if (!response.ok) {
+        setError(body.error ?? "GUESS_FAILED");
+        return;
+      }
+      setError("");
+      setSearchQuery("");
+      setSearchItems([]);
+      setDaily((current) =>
+        current ? { ...current, game: body.session } : current,
+      );
+    } catch {
+      setError("提交猜测失败");
+    }
+  }
+
+  useEffect(() => {
+    if (!daily?.game || daily.game.status !== "active") return;
+    if (remainingSeconds > 0) return;
+    const headers: Record<string, string> = {};
+    if (daily.playerToken) headers["X-Daily-Player"] = daily.playerToken;
+    const controller = new AbortController();
+    void fetch("/api/daily", { headers, signal: controller.signal })
+      .then(
+        (response) =>
+          response.json() as Promise<{ session: PublicGameSession }>,
+      )
+      .then((body) =>
+        setDaily((current) =>
+          current ? { ...current, game: body.session } : current,
+        ),
+      )
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, [daily?.game?.id, daily?.game?.status, remainingSeconds <= 0]);
+
   function submitVisualNovel(item: SearchItem) {
+    if (daily) {
+      void submitDailyGuess(item);
+      return;
+    }
     socket.emit(
       "game:guess",
       { visualNovelId: item.id },
@@ -552,7 +677,7 @@ export function App() {
       </header>
 
       <main id="top">
-        {(!room?.round || !game) && (
+        {!activeGame && (
           <section className="hero">
             <div className="hero-copy">
               <p className="eyebrow">PICK · COMPARE · OUTPLAY</p>
@@ -624,6 +749,13 @@ export function App() {
                     </p>
                   </div>
                   <div className="entry-actions">
+                    <button
+                      className="daily-button"
+                      disabled={!connected}
+                      onClick={() => void enterDaily()}
+                    >
+                      每日同题 · 所有人同一天同一题
+                    </button>
                     <button
                       className="primary"
                       disabled={!canEnter}
@@ -947,6 +1079,26 @@ export function App() {
                         <option value={600}>10 分钟</option>
                       </select>
                     </label>
+                    {room.rules.mode !== "solo" && (
+                      <label>
+                        <span>赛制</span>
+                        <select
+                          value={room.rules.bestOf}
+                          disabled={!isHost}
+                          onChange={(event) =>
+                            saveRules({
+                              ...room.rules,
+                              bestOf: Number(event.target.value) as 1 | 3 | 5 | 7,
+                            })
+                          }
+                        >
+                          <option value={1}>单局决胜</option>
+                          <option value={3}>三局两胜</option>
+                          <option value={5}>五局三胜</option>
+                          <option value={7}>七局四胜</option>
+                        </select>
+                      </label>
+                    )}
                   </div>
 
                   <p className="exclude-label">排除标签</p>
@@ -987,22 +1139,22 @@ export function App() {
           </section>
         )}
 
-        {room?.round && game && (
+        {activeGame && (
           <section className="game-stage">
             <div className="game-stage-head">
               <div>
-                <p className="eyebrow">ROUND {room.round.roundNumber}</p>
+                <p className="eyebrow">{roundEyebrow}</p>
                 <h2>
-                  {game.status === "active"
+                  {activeGame.status === "active"
                     ? "搜一部作品，开始排除答案。"
                     : "本轮已经结算。"}
                 </h2>
               </div>
               <div className="attempt-counter">
-                <b>{game.attemptsLeft}</b>
+                <b>{activeGame.attemptsLeft}</b>
                 <span>剩余猜测</span>
               </div>
-              {game.status === "active" && (
+              {activeGame.status === "active" && (
                 <div
                   className={`round-countdown ${remainingSeconds <= 30 ? "urgent" : ""}`}
                   role="timer"
@@ -1012,12 +1164,32 @@ export function App() {
                   <b>{formatCountdown(remainingSeconds)}</b>
                 </div>
               )}
-              <button className="game-exit" onClick={leaveRoom}>
+              <button
+                className="game-exit"
+                onClick={daily ? exitDaily : leaveRoom}
+              >
                 退出游戏
               </button>
             </div>
 
-            {game.status === "active" ? (
+            {matchScorePlayers.length > 0 && (
+              <div className="match-score" aria-label="比赛比分">
+                {matchScorePlayers.map((score) => (
+                  <span
+                    key={score.playerId}
+                    className={`${score.isSelf ? "self" : ""} ${score.isWinner ? "winner" : ""}`}
+                  >
+                    <small>{score.isSelf ? "自己" : score.nickname}</small>
+                    <b>
+                      {score.wins}
+                      <i> / {score.target} 胜</i>
+                    </b>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {activeGame.status === "active" ? (
               remainingSeconds > 0 ? (
                 <div className="game-search">
                   <input
@@ -1045,22 +1217,32 @@ export function App() {
                   )}
                 </div>
               ) : (
-                <div className="timer-settling">时间到，正在等待本轮结算……</div>
+                <div className="timer-settling">
+                  {daily
+                    ? "时间到，正在获取今日结果……"
+                    : "时间到，正在等待本轮结算……"}
+                </div>
               )
             ) : (
               <div className="answer-banner">
                 <span>
-                  {game.status === "won" ? "你抢先猜中了" : "本轮答案"}
+                  {matchWon
+                    ? "你赢得了整场比赛"
+                    : activeGame.status === "won"
+                      ? "你抢先猜中了"
+                      : "本轮答案"}
                 </span>
                 <strong>
-                  {game.answer?.title ?? room.round.answer?.title ?? "等待结算"}
+                  {activeGame.answer?.title ??
+                    room?.round?.answer?.title ??
+                    "等待结算"}
                 </strong>
               </div>
             )}
 
-            {room.rules.mode === "duel" ? (
+            {room?.rules.mode === "duel" ? (
               <div className="duel-progress" aria-label="1v1 答题进度">
-                {room.round.players
+                {(room.round?.players ?? [])
                   .slice()
                   .sort((left, right) =>
                     left.playerId === session?.playerId
@@ -1096,9 +1278,9 @@ export function App() {
                     );
                   })}
               </div>
-            ) : room.rules.mode === "race" ? (
+            ) : room?.rules.mode === "race" ? (
               <div className="race-progress">
-                {room.round.players.map((playerProgress) => {
+                {(room.round?.players ?? []).map((playerProgress) => {
                   const player = room.players.find(
                     (item) => item.id === playerProgress.playerId,
                   );
@@ -1114,10 +1296,10 @@ export function App() {
             ) : null}
 
             <div className="guess-history">
-              {game.guesses.length === 0 ? (
+              {activeGame.guesses.length === 0 ? (
                 <p>第一次猜测后，比较结果会出现在这里。</p>
               ) : (
-                game.guesses
+                activeGame.guesses
                   .slice()
                   .reverse()
                   .map((guess) => (
@@ -1164,7 +1346,7 @@ export function App() {
           </section>
         )}
 
-        {(!room?.round || !game) && (
+        {!activeGame && (
           <section id="modes" className="feature-strip">
             <article>
               <b>01</b>
@@ -1184,7 +1366,7 @@ export function App() {
           </section>
         )}
 
-        {(!room?.round || !game) && (
+        {!activeGame && (
           <section id="data" className="data-note">
             <p className="eyebrow">SOURCE-AWARE DATABASE</p>
             <h2>两套资料库，不做含糊拼接。</h2>

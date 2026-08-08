@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createDailyGameSession,
   createGameSession,
   filterAnswerPool,
   publicGameSession,
@@ -245,5 +246,49 @@ describe("game session", () => {
       error: "GAME_EXPIRED",
       game: { status: "expired" },
     });
+  });
+});
+
+describe("daily question session", () => {
+  const dailyCatalog = [
+    visualNovel("v-1"),
+    visualNovel("v-2"),
+    visualNovel("v-3"),
+    visualNovel("v-4"),
+    visualNovel("v-5"),
+    visualNovel("v-6"),
+  ];
+
+  it("picks the same answer for the same date", () => {
+    const first = createDailyGameSession(dailyCatalog, rules, "2026-08-08");
+    const second = createDailyGameSession(dailyCatalog, rules, "2026-08-08");
+    expect(first.answer.id).toBe(second.answer.id);
+    expect(first.answer).not.toBe(second.answer);
+  });
+
+  it("only uses answers inside the filtered pool", () => {
+    const catalog = [
+      visualNovel("novice-a"),
+      visualNovel("veteran", { vndbVoteCount: 5, bangumiVoteCount: 5 }),
+    ];
+    const session = createDailyGameSession(catalog, rules, "2026-08-08");
+    expect(session.answer.id).toBe("novice-a");
+  });
+
+  it("rotates the answer across dates", () => {
+    const picked = new Set(
+      ["2026-08-08", "2026-08-09", "2026-08-10"].map((date) =>
+        createDailyGameSession(dailyCatalog, rules, date).answer.id,
+      ),
+    );
+    expect(picked.size).toBeGreaterThan(1);
+  });
+
+  it("creates independent sessions that share the day's answer", () => {
+    const first = createDailyGameSession(dailyCatalog, rules, "2026-08-08");
+    const second = createDailyGameSession(dailyCatalog, rules, "2026-08-08");
+    expect(second.answer.id).toBe(first.answer.id);
+    expect(second.id).not.toBe(first.id);
+    expect(second.guesses).toEqual([]);
   });
 });

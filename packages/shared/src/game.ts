@@ -146,13 +146,23 @@ export function createGameSession(
     pool.length - 1,
     Math.max(0, Math.floor(random() * pool.length)),
   );
-  const startedAt = options.now ?? new Date();
+  const answerOptions: { now?: Date; id?: string } = {};
+  if (options.now !== undefined) answerOptions.now = options.now;
+  if (options.id !== undefined) answerOptions.id = options.id;
+  return createGameSessionForAnswer(pool[index] as VisualNovel, rules, answerOptions);
+}
 
+export function createGameSessionForAnswer(
+  answer: VisualNovel,
+  rules: GameRules,
+  options: { now?: Date; id?: string } = {},
+): GameSession {
+  const startedAt = options.now ?? new Date();
   return {
     id: options.id ?? createSessionId(),
     status: "active",
     rules: structuredClone(rules),
-    answer: structuredClone(pool[index] as VisualNovel),
+    answer: structuredClone(answer),
     guesses: [],
     startedAt: startedAt.toISOString(),
     deadlineAt: new Date(
@@ -160,6 +170,39 @@ export function createGameSession(
     ).toISOString(),
     finishedAt: null,
   };
+}
+
+export function dailyDateString(now: Date = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
+
+export function dailySeedIndex(dateString: string, poolSize: number): number {
+  let hash = 2166136261;
+  for (let index = 0; index < dateString.length; index += 1) {
+    hash ^= dateString.charCodeAt(index);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash % poolSize;
+}
+
+export function dailyAnswerForDate(
+  catalog: VisualNovel[],
+  rules: GameRules,
+  dateString: string,
+): VisualNovel {
+  const pool = filterAnswerPool(catalog, rules);
+  if (pool.length === 0) throw new Error("EMPTY_ANSWER_POOL");
+  return pool[dailySeedIndex(dateString, pool.length)] as VisualNovel;
+}
+
+export function createDailyGameSession(
+  catalog: VisualNovel[],
+  rules: GameRules,
+  dateString: string,
+  options: { now?: Date; id?: string } = {},
+): GameSession {
+  const answer = dailyAnswerForDate(catalog, rules, dateString);
+  return createGameSessionForAnswer(answer, rules, options);
 }
 
 export function submitGuess(
