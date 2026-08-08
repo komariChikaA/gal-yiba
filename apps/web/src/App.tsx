@@ -10,8 +10,8 @@ import {
   type GameRules,
 } from "@gal-yiba/shared";
 import {
+  comparisonSymbol,
   formatComparisonAriaLabel,
-  formatComparisonMarker,
   formatComparisonValue,
   formatCountdown,
   formatGuessStars,
@@ -1614,15 +1614,10 @@ export function App() {
                               {formatComparisonValue(result)}
                             </strong>
                             <span
-                              className="comparison-verdict"
+                              className={`comparison-verdict ${result.status}`}
                               aria-label={formatComparisonAriaLabel(result)}
                             >
-                              {formatComparisonMarker(result)}
-                              {result.direction && (
-                                <i>
-                                  {result.direction === "higher" ? "↑" : "↓"}
-                                </i>
-                              )}
+                              {comparisonSymbol(result)}
                             </span>
                           </span>
                         ))}

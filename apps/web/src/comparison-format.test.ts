@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  comparisonSymbol,
   formatComparisonAriaLabel,
   formatComparisonMarker,
   formatComparisonValue,
@@ -94,5 +95,58 @@ describe("formatComparisonMarker", () => {
         guessValue: 2016,
       }),
     ).toBe("接近，答案更高");
+  });
+});
+
+describe("comparisonSymbol", () => {
+  it("prefers the quantity sign over the status fallback", () => {
+    expect(
+      comparisonSymbol({
+        key: "developer",
+        status: "partial",
+        hint: "more",
+        guessValue: ["A"],
+      }),
+    ).toBe("+");
+    expect(
+      comparisonSymbol({
+        key: "developer",
+        status: "miss",
+        hint: "fewer",
+        guessValue: [],
+      }),
+    ).toBe("−");
+  });
+
+  it("shows the direction arrow before the status fallback", () => {
+    expect(
+      comparisonSymbol({
+        key: "releaseYear",
+        status: "partial",
+        direction: "higher",
+        guessValue: 2016,
+      }),
+    ).toBe("↑");
+    expect(
+      comparisonSymbol({
+        key: "vndbRating",
+        status: "miss",
+        direction: "lower",
+        guessValue: 8.1,
+      }),
+    ).toBe("↓");
+  });
+
+  it("falls back to a per-status symbol", () => {
+    const statuses = ["exact", "partial", "miss", "unknown"] as const;
+    expect(
+      statuses.map((status) =>
+        comparisonSymbol({
+          key: "platforms",
+          status,
+          guessValue: ["PC"],
+        }),
+      ),
+    ).toEqual(["✓", "≈", "×", "?"]);
   });
 });

@@ -47,6 +47,22 @@ export function formatComparisonMarker(result: ComparisonResult): string {
   return result.hint === "more" ? "+" : result.hint === "fewer" ? "−" : "";
 }
 
+/** 徽章符号：优先数量提示（+ −），其次方向（↑ ↓），最后按状态兜底。 */
+export function comparisonSymbol(result: ComparisonResult): string {
+  const quantity = formatComparisonMarker(result);
+  if (quantity) return quantity;
+  if (result.direction === "higher") return "↑";
+  if (result.direction === "lower") return "↓";
+  return (
+    {
+      exact: "✓",
+      partial: "≈",
+      miss: "×",
+      unknown: "?",
+    } as const
+  )[result.status] ?? "?";
+}
+
 export function formatComparisonAriaLabel(result: ComparisonResult): string {
   const status = {
     exact: "匹配",
