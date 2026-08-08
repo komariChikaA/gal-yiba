@@ -43,8 +43,17 @@ const catalogRepository = databasePool
   : null;
 const matchRecorder = new MatchRecorder(databasePool);
 
+let catalogCache: Awaited<ReturnType<typeof CatalogRepository.prototype.listVisualNovels>> | null =
+  null;
+let catalogCacheAt = 0;
+
 async function loadCatalog() {
-  return catalogRepository?.listVisualNovels() ?? [];
+  const now = Date.now();
+  if (catalogCache && now - catalogCacheAt < 300_000) return catalogCache;
+  const catalog = catalogRepository?.listVisualNovels() ?? [];
+  catalogCache = await catalog;
+  catalogCacheAt = now;
+  return catalogCache;
 }
 const nicknameSchema = z.string().trim().min(1).max(20);
 const playerIdSchema = z.string().uuid().optional();
