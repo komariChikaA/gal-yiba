@@ -74,6 +74,12 @@ pnpm refresh:vndb
 pnpm refresh:bangumi
 ```
 
+VNDB 刷新默认在每个 100 条批次之间等待 3 秒。若官方接口仍返回 `429`，读取最后一行的 `completed` 数字，等待限流窗口恢复后续跑，例如：
+
+```bash
+pnpm refresh:vndb -- --offset=1000 --pause-ms=5000
+```
+
 ## 反向代理
 
 Nginx、Caddy 或面板代理必须同时支持 HTTP 和 WebSocket，并将 `/socket.io/` 原样转发到应用的 3000 端口。TLS 应在反向代理层终止。

@@ -9,7 +9,31 @@ import { CatalogSyncService } from "../services/catalog-sync.js";
 
 const source = process.argv[2];
 if (source !== "vndb" && source !== "bangumi") {
-  throw new Error("Usage: refresh-catalog.ts <vndb|bangumi>");
+  throw new Error(
+    "Usage: refresh-catalog.ts <vndb|bangumi> [--offset=0] [--pause-ms=3000]",
+  );
+}
+
+function argument(name: string, fallback: string): string {
+  const prefix = `--${name}=`;
+  return (
+    process.argv
+      .find((item) => item.startsWith(prefix))
+      ?.slice(prefix.length) ?? fallback
+  );
+}
+
+const offsetInput = Number(argument("offset", "0"));
+const pauseInput = Number(
+  argument("pause-ms", source === "vndb" ? "3000" : "0"),
+);
+if (!Number.isInteger(offsetInput) || offsetInput < 0)
+  throw new Error("INVALID_REFRESH_OFFSET");
+if (!Number.isInteger(pauseInput) || pauseInput < 0 || pauseInput > 60_000)
+  throw new Error("INVALID_REFRESH_PAUSE");
+
+function pause(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 const pool = createDatabasePool();
@@ -22,6 +46,7 @@ try {
     source === "bangumi",
   );
   const batchSize = source === "vndb" ? 100 : 20;
+  const startOffset = Math.min(offsetInput, sourceIds.length);
   let recordsSeen = 0;
   let recordsWritten = 0;
 
@@ -46,7 +71,12 @@ try {
         })
       : null;
 
-  for (let offset = 0; offset < sourceIds.length; offset += batchSize) {
+  for (
+    let offset = startOffset;
+    offset < sourceIds.length;
+    offset += batchSize
+  ) {
+    if (offset > startOffset && pauseInput > 0) await pause(pauseInput);
     const ids = sourceIds.slice(offset, offset + batchSize);
     const summary = await sync.syncPage(
       source,
