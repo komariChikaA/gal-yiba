@@ -28,6 +28,38 @@ function visualNovel(id: string): VisualNovel {
 }
 
 describe("RoomRegistry", () => {
+  it("counts only connected players in active battles", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel");
+    const guest = registry.join(host.room.code, "玩家二");
+
+    expect(registry.activityStats()).toEqual({
+      activeRooms: 0,
+      battlingPlayers: 0,
+    });
+
+    registry.setReady(host.room.code, guest.session.playerId, true);
+    registry.start(host.room.code, host.session.playerId, [
+      visualNovel("answer"),
+    ]);
+    expect(registry.activityStats()).toEqual({
+      activeRooms: 1,
+      battlingPlayers: 2,
+    });
+
+    registry.disconnect(host.room.code, guest.session.playerId);
+    expect(registry.activityStats()).toEqual({
+      activeRooms: 1,
+      battlingPlayers: 1,
+    });
+
+    registry.leave(host.room.code, host.session.playerId);
+    expect(registry.activityStats()).toEqual({
+      activeRooms: 0,
+      battlingPlayers: 0,
+    });
+  });
+
   it("creates a five-character room and lets another player join case-insensitively", () => {
     const registry = new RoomRegistry();
     const created = registry.create("房主", "race");

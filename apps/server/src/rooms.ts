@@ -206,6 +206,26 @@ export class RoomRegistry {
     string,
     { roomCode: string; playerId: string }
   >();
+
+  activityStats(): { activeRooms: number; battlingPlayers: number } {
+    let activeRooms = 0;
+    let battlingPlayers = 0;
+    for (const room of this.rooms.values()) {
+      if (
+        room.phase !== "countdown" &&
+        room.phase !== "active" &&
+        room.phase !== "round_result"
+      ) {
+        continue;
+      }
+      activeRooms += 1;
+      battlingPlayers += [...room.players.values()].filter(
+        (player) => player.connected,
+      ).length;
+    }
+    return { activeRooms, battlingPlayers };
+  }
+
   create(
     nickname: string,
     mode: GameMode = "race",
