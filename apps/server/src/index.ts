@@ -72,7 +72,7 @@ const joinSchema = z.object({
 const createRoomSchema = z.object({
   nickname: nicknameSchema,
   mode: z.enum(["solo", "duel", "race"]),
-  fameTier: z.enum(["novice", "standard", "veteran", "master"]),
+  fameTier: z.enum(["novice", "standard", "veteran", "experienced", "master"]),
   playerId: playerIdSchema,
   featureCode: featureCodeSchema,
 });
@@ -99,7 +99,13 @@ const gameRulesSchema = z.object({
     includeChina: z.boolean(),
     includeWest: z.boolean(),
     maxTagSpoilerLevel: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-    fameTier: z.enum(["novice", "standard", "veteran", "master"]),
+    fameTier: z.enum([
+      "novice",
+      "standard",
+      "veteran",
+      "experienced",
+      "master",
+    ]),
   }),
 });
 
@@ -213,7 +219,7 @@ app.get("/api/catalog/tags", async (request, response, next) => {
     const includeOtome =
       String(request.query.includeOtome ?? "false") === "true";
     const fameTier = z
-      .enum(["novice", "standard", "veteran", "master"])
+      .enum(["novice", "standard", "veteran", "experienced", "master"])
       .optional()
       .parse(request.query.fameTier);
     const maxSpoilerLevel = (

@@ -95,22 +95,27 @@ const fameOptions: Array<{
   {
     value: "novice",
     label: "萌新",
-    description: "分数榜前 150 部",
+    description: "分数榜前 100 部",
   },
   {
     value: "standard",
     label: "入门",
-    description: "分数榜前 300 部",
+    description: "分数榜前 250 部",
   },
   {
     value: "veteran",
     label: "标准",
-    description: "分数榜前 690 部",
+    description: "分数榜前 500 部",
+  },
+  {
+    value: "experienced",
+    label: "小资历",
+    description: "分数榜前 750 部",
   },
   {
     value: "master",
     label: "老资历",
-    description: "分数榜前 1028 部（标准 +338）",
+    description: "分数榜前 1024 部",
   },
 ];
 
@@ -255,8 +260,7 @@ export function App() {
   );
   const [nickname, setNickname] = useState("");
   const [selectedMode, setSelectedMode] = useState<GameMode>("solo");
-  const [selectedFameTier, setSelectedFameTier] =
-    useState<FameTier>("standard");
+  const [selectedFameTier, setSelectedFameTier] = useState<FameTier>("veteran");
   const [fameCounts, setFameCounts] = useState<Record<FameTier, number> | null>(
     null,
   );
