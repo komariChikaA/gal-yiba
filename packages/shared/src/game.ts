@@ -16,7 +16,7 @@ export const fameTierPoolSizes: Record<FameTier, number> = {
   master: 1024,
 };
 
-/** 综合分：评分优先（×10⁹），票数只做同分排序。 */
+/** 后续扩充题池使用的综合分：评分优先（×10⁹），票数只做同分排序。 */
 export function visualNovelScore(visualNovel: VisualNovel): number {
   const rating = visualNovel.vndbRating ?? visualNovel.bangumiRating ?? 0;
   const votes =
@@ -24,20 +24,44 @@ export function visualNovelScore(visualNovel: VisualNovel): number {
   return Math.round(rating * 1_000_000_000) + votes;
 }
 
+function hasBangumiMetrics(visualNovel: VisualNovel): boolean {
+  return (
+    visualNovel.bangumiRating != null && visualNovel.bangumiVoteCount != null
+  );
+}
+
 let rankingCache: {
   catalog: VisualNovel[];
   rankById: Map<string, number>;
 } | null = null;
 
-/** 按综合分从高到低排序目录，返回每个作品的排名（0 起）。 */
+/**
+ * 知名度顺序：前 500 部优先按 Bangumi 票数，其余作品再按综合分补齐。
+ * 这样前三档全部能使用 Bangumi 评分/票数，同时五档仍保持累进包含关系。
+ */
 export function catalogRanking(catalog: VisualNovel[]): Map<string, number> {
   if (rankingCache && rankingCache.catalog === catalog)
     return rankingCache.rankById;
-  const sorted = [...catalog].sort(
-    (left, right) =>
-      visualNovelScore(right) - visualNovelScore(left) ||
-      left.title.localeCompare(right.title),
+
+  const byCompositeScore = (left: VisualNovel, right: VisualNovel) =>
+    visualNovelScore(right) - visualNovelScore(left) ||
+    left.title.localeCompare(right.title);
+  const bangumiPriority = catalog
+    .filter(hasBangumiMetrics)
+    .sort(
+      (left, right) =>
+        right.bangumiVoteCount! - left.bangumiVoteCount! ||
+        right.bangumiRating! - left.bangumiRating! ||
+        byCompositeScore(left, right),
+    )
+    .slice(0, fameTierPoolSizes.veteran);
+  const priorityIds = new Set(
+    bangumiPriority.map((visualNovel) => visualNovel.id),
   );
+  const remainder = catalog
+    .filter((visualNovel) => !priorityIds.has(visualNovel.id))
+    .sort(byCompositeScore);
+  const sorted = [...bangumiPriority, ...remainder];
   const rankById = new Map<string, number>();
   sorted.forEach((visualNovel, index) => rankById.set(visualNovel.id, index));
   rankingCache = { catalog, rankById };

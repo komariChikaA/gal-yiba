@@ -4,7 +4,11 @@ import {
   scoreSourceMatch,
   type SourceVisualNovel,
 } from "@gal-yiba/data";
-import { CatalogRepository, createDatabasePool, migrateDatabase } from "../db/index.js";
+import {
+  CatalogRepository,
+  createDatabasePool,
+  migrateDatabase,
+} from "../db/index.js";
 
 function argument(name: string, fallback?: string): string | undefined {
   const prefix = `--${name}=`;
@@ -44,12 +48,6 @@ try {
   let linked = 0;
   let suggested = 0;
   let skipped = 0;
-    let best: {
-      candidate: SourceVisualNovel;
-      confidence: number;
-      decision: string;
-      evidence: object;
-    } | null = null;
   const batch = await repository.listCanonicalsMissingBangumi(limit, offset);
   for (const item of batch) {
     processed += 1;

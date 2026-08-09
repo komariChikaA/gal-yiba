@@ -95,27 +95,27 @@ const fameOptions: Array<{
   {
     value: "novice",
     label: "萌新",
-    description: "分数榜前 100 部",
+    description: "Bangumi 票数前 100 部",
   },
   {
     value: "standard",
     label: "入门",
-    description: "分数榜前 250 部",
+    description: "Bangumi 票数前 250 部",
   },
   {
     value: "veteran",
     label: "标准",
-    description: "分数榜前 500 部",
+    description: "Bangumi 票数前 500 部",
   },
   {
     value: "experienced",
     label: "小资历",
-    description: "分数榜前 750 部",
+    description: "前 500 部按 Bangumi 票数，再扩充至 750 部",
   },
   {
     value: "master",
     label: "老资历",
-    description: "分数榜前 1024 部",
+    description: "前 500 部按 Bangumi 票数，再扩充至 1024 部",
   },
 ];
 

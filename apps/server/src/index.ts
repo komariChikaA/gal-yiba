@@ -279,7 +279,21 @@ app.get("/api/catalog/fame-tiers", async (_request, response, next) => {
     for (const tier of Object.keys(fameTierPoolSizes) as FameTier[]) {
       counts[tier] = Math.min(fameTierPoolSizes[tier], catalog.length);
     }
-    response.json({ counts, sizes: fameTierPoolSizes });
+    const bangumiMetricsAvailable = catalog.filter(
+      (visualNovel) =>
+        visualNovel.bangumiRating != null &&
+        visualNovel.bangumiVoteCount != null,
+    ).length;
+    response.json({
+      counts,
+      sizes: fameTierPoolSizes,
+      ranking: {
+        primaryMetric: "bangumiVoteCount",
+        primaryTop: fameTierPoolSizes.veteran,
+        fallback: "compositeScore",
+      },
+      bangumiMetricsAvailable,
+    });
   } catch (error) {
     next(error);
   }
