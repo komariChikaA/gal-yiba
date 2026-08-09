@@ -145,6 +145,50 @@ describe("filterAnswerPool", () => {
     }
   });
 
+  it("prioritizes Bangumi votes for the first 500 works", () => {
+    const catalog = Array.from({ length: 600 }, (_, index) =>
+      visualNovel(`v-${index}`, {
+        vndbRating: index === 599 ? 10 : 7,
+        vndbVoteCount: index === 599 ? 100_000 : 100,
+        bangumiRating: 7 + index / 10_000,
+        bangumiVoteCount: 600 - index,
+      }),
+    );
+    const standardPool = filterAnswerPool(catalog, {
+      ...rules,
+      pool: { ...rules.pool, fameTier: "veteran" },
+    });
+
+    expect(standardPool).toHaveLength(500);
+    expect(standardPool.every((item) => item.bangumiRating != null)).toBe(true);
+    expect(standardPool.every((item) => item.bangumiVoteCount != null)).toBe(
+      true,
+    );
+    expect(standardPool.map((item) => item.id)).toContain("v-0");
+    expect(standardPool.map((item) => item.id)).not.toContain("v-599");
+  });
+
+  it("fills the Bangumi priority pool from the composite ranking when coverage is short", () => {
+    const catalog = [
+      visualNovel("with-bangumi", {
+        bangumiRating: 7,
+        bangumiVoteCount: 10,
+      }),
+      visualNovel("without-bangumi", {
+        bangumiRating: null,
+        bangumiVoteCount: null,
+        vndbRating: 9,
+      }),
+    ];
+
+    expect(
+      filterAnswerPool(catalog, {
+        ...rules,
+        pool: { ...rules.pool, fameTier: "novice" },
+      }).map((item) => item.id),
+    ).toEqual(["with-bangumi", "without-bangumi"]);
+  });
+
   it("filters and compares tags at the configured spoiler level", () => {
     const tagged = visualNovel("tagged", {
       tags: ["悬疑", "成人内容", "真结局反转"],

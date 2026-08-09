@@ -21,6 +21,7 @@
     "dev": "pnpm --parallel --filter @gal-yiba/server --filter @gal-yiba/web dev",
     "sync:vndb": "pnpm --filter @gal-yiba/server sync:vndb",
     "sync:bangumi": "pnpm --filter @gal-yiba/server sync:bangumi",
+    "sync:bangumi-backfill": "pnpm --filter @gal-yiba/server sync:bangumi-backfill",
     "refresh:vndb": "pnpm --filter @gal-yiba/server refresh:vndb",
     "refresh:bangumi": "pnpm --filter @gal-yiba/server refresh:bangumi",
     "mappings:list": "pnpm --filter @gal-yiba/server mappings:list",
