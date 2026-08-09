@@ -45,7 +45,21 @@ const definitions: readonly TagDefinition[] = [
       "耽美",
     ],
   },
-  { name: "乙女", group: "audience", aliases: ["otome game", "otome", "乙女"] },
+  {
+    name: "乙女",
+    group: "audience",
+    aliases: [
+      "otome game",
+      "otome",
+      "乙女",
+      "乙女向",
+      "乙女游戏",
+      "乙女遊戲",
+      "乙女ゲー",
+      "女性向",
+      "女性向け",
+    ],
+  },
   { name: "后宫", group: "relationship", aliases: ["harem", "后宫", "後宮"] },
   {
     name: "禁忌恋",
@@ -371,6 +385,7 @@ const vndbTagIds = new Map<string, string>([
   ["g123", "人外"],
   ["g400", "人外"],
   ["g308", "同居"],
+  ["g542", "乙女"],
 ]);
 
 function normalizeKey(value: string): string {
@@ -401,8 +416,12 @@ interface NormalizedTag extends VisualNovelTag {
 export function normalizeRepresentativeTag(
   detail: VisualNovelTag,
 ): NormalizedTag | null {
-  if (detail.category === "ero" || detail.category === "tech") return null;
   const idName = detail.id ? vndbTagIds.get(detail.id) : undefined;
+  if (
+    detail.category === "ero" ||
+    (detail.category === "tech" && idName !== "乙女")
+  )
+    return null;
   const definition = idName
     ? definitionsByName.get(idName)
     : definitionsByAlias.get(normalizeKey(detail.name));

@@ -147,7 +147,7 @@ interface RoomSnapshot {
         }>;
       }>;
     }>;
-    };
+  };
   winnerPlayerId: string | null;
   matchWinnerPlayerId: string | null;
   scores: Array<{ playerId: string; wins: number }>;
@@ -266,24 +266,23 @@ export function App() {
   const [error, setError] = useState("");
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaderboardMode, setLeaderboardMode] = useState<
-    "all" | GameMode
-  >("all");
+  const [leaderboardMode, setLeaderboardMode] = useState<"all" | GameMode>(
+    "all",
+  );
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(
     null,
   );
   const [showAdmin, setShowAdmin] = useState(false);
-  const [adminToken, setAdminToken] = useState(() =>
-    sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? "",
+  const [adminToken, setAdminToken] = useState(
+    () => sessionStorage.getItem(ADMIN_TOKEN_KEY) ?? "",
   );
   const [adminSuggestions, setAdminSuggestions] = useState<
     MappingSuggestion[] | null
   >(null);
   const [adminError, setAdminError] = useState("");
   const [adminBusy, setAdminBusy] = useState(false);
-  const [adminRebuild, setAdminRebuild] = useState<MappingRebuildSummary | null>(
-    null,
-  );
+  const [adminRebuild, setAdminRebuild] =
+    useState<MappingRebuildSummary | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState("");
   const [chatOpen, setChatOpen] = useState(true);
@@ -301,9 +300,9 @@ export function App() {
   const [availableTags, setAvailableTags] = useState<
     Array<{ name: string; count: number }>
   >([]);
-  const [selected, setSelected] = useState<ComparisonKey[]>(
-    [...defaultComparisonKeys],
-  );
+  const [selected, setSelected] = useState<ComparisonKey[]>([
+    ...defaultComparisonKeys,
+  ]);
   const [includedTagInput, setIncludedTagInput] = useState("");
   const [customTag, setCustomTag] = useState("");
 
@@ -312,8 +311,7 @@ export function App() {
     (player) => player.id === session?.playerId,
   );
   const canEnter = nickname.trim().length > 0 && connected;
-  const activeGame =
-    daily?.game ?? (room?.round && game ? game : null);
+  const activeGame = daily?.game ?? (room?.round && game ? game : null);
   const roundEyebrow = daily
     ? `每日同题 · ${daily.date}`
     : `ROUND ${room?.round?.roundNumber ?? 1}`;
@@ -337,18 +335,20 @@ export function App() {
     room.rules.bestOf > 1 &&
     room.matchWinnerPlayerId === session?.playerId;
   const remainingSeconds = activeGame
-    ? Math.max(0, Math.ceil((Date.parse(activeGame.deadlineAt) - clockNow) / 1000))
+    ? Math.max(
+        0,
+        Math.ceil((Date.parse(activeGame.deadlineAt) - clockNow) / 1000),
+      )
     : 0;
   /** 多人局中猜测次数用尽但本轮尚未结束：不揭晓答案，继续倒计时。 */
-  const exhausted =
-    activeGame?.status === "lost" && room?.phase === "active";
+  const exhausted = activeGame?.status === "lost" && room?.phase === "active";
 
   /** 1v1 对手的猜测记录（颜色可见、文字留白）。 */
   const duelOpponent =
     room?.rules.mode === "duel"
-      ? room.round?.players.find(
+      ? (room.round?.players.find(
           (player) => player.playerId !== session?.playerId,
-        ) ?? null
+        ) ?? null)
       : null;
   useEffect(() => {
     localStorage.setItem("gal-yiba-color-theme", colorTheme);
@@ -356,10 +356,7 @@ export function App() {
       colorTheme === "night" ? "dark" : "light";
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute(
-        "content",
-        colorTheme === "night" ? "#08152f" : "#dceefc",
-      );
+      ?.setAttribute("content", colorTheme === "night" ? "#08152f" : "#dceefc");
   }, [colorTheme]);
 
   useEffect(() => {
@@ -396,8 +393,7 @@ export function App() {
     const query = leaderboardMode === "all" ? "" : `?mode=${leaderboardMode}`;
     void fetch(`/api/leaderboard${query}`, { signal: controller.signal })
       .then(
-        (response) =>
-          response.json() as Promise<{ items: LeaderboardEntry[] }>,
+        (response) => response.json() as Promise<{ items: LeaderboardEntry[] }>,
       )
       .then((body) => setLeaderboard(body.items))
       .catch(() => setLeaderboard([]));
@@ -577,7 +573,7 @@ export function App() {
     if (!room || !isHost || room.phase !== "lobby") return;
     const controller = new AbortController();
     void fetch(
-      `/api/catalog/tags?maxSpoilerLevel=${room.rules.pool.maxTagSpoilerLevel}&allAgesOnly=${room.rules.pool.allAgesOnly}&fameTier=${room.rules.pool.fameTier}`,
+      `/api/catalog/tags?maxSpoilerLevel=${room.rules.pool.maxTagSpoilerLevel}&allAgesOnly=${room.rules.pool.allAgesOnly}&includeOtome=${room.rules.pool.includeOtome}&fameTier=${room.rules.pool.fameTier}`,
       {
         signal: controller.signal,
       },
@@ -598,6 +594,7 @@ export function App() {
     room?.phase,
     room?.rules.pool.maxTagSpoilerLevel,
     room?.rules.pool.allAgesOnly,
+    room?.rules.pool.includeOtome,
     room?.rules.pool.fameTier,
     isHost,
   ]);
@@ -1059,11 +1056,7 @@ export function App() {
           >
             排行榜
           </button>
-          <button
-            className="nav-link"
-            type="button"
-            onClick={openAdmin}
-          >
+          <button className="nav-link" type="button" onClick={openAdmin}>
             管理
           </button>
           <button
@@ -1122,9 +1115,7 @@ export function App() {
                     <input
                       value={featureCode}
                       maxLength={16}
-                      onChange={(event) =>
-                        applyFeatureCode(event.target.value)
-                      }
+                      onChange={(event) => applyFeatureCode(event.target.value)}
                       placeholder="留空则匿名统计"
                     />
                   </label>
@@ -1468,6 +1459,23 @@ export function App() {
                       />
                     </label>
                     <label>
+                      <span>乙游（女性向恋爱）</span>
+                      <input
+                        type="checkbox"
+                        checked={room.rules.pool.includeOtome}
+                        disabled={!isHost}
+                        onChange={(event) =>
+                          saveRules({
+                            ...room.rules,
+                            pool: {
+                              ...room.rules.pool,
+                              includeOtome: event.target.checked,
+                            },
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
                       <span>国旮（中国作品）</span>
                       <input
                         type="checkbox"
@@ -1548,7 +1556,8 @@ export function App() {
                           onChange={(event) =>
                             saveRules({
                               ...room.rules,
-                              bestOf: Number(event.target.value) as 1 | 3 | 5 | 7,
+                              bestOf: Number(event.target.value) as
+                                1 | 3 | 5 | 7,
                             })
                           }
                         >
@@ -1648,7 +1657,6 @@ export function App() {
                 ))}
               </div>
             )}
-
 
             {room?.phase === "round_result" &&
               room?.intermissionDeadlineAt != null && (
@@ -1816,8 +1824,8 @@ export function App() {
                             <b>{guess.displayTitle ?? guess.title}</b>
                             <span>
                               {guess.titleStatus === "partial" && "同系列 · "}
-                              {guess.titleStatus === "exact" && "答案 · "}第{" "}
-                              {guess.guessNumber} 次
+                              {guess.titleStatus === "exact" &&
+                                "答案 · "}第 {guess.guessNumber} 次
                             </span>
                           </header>
                           <div>
@@ -1863,10 +1871,11 @@ export function App() {
                                   className={`comparison-card ${comparison.status}`}
                                 >
                                   <small>
-                                    {room?.rules.comparisonKeys[index] !== undefined
-                                      ? comparisonLabels[
+                                    {room?.rules.comparisonKeys[index] !==
+                                    undefined
+                                      ? (comparisonLabels[
                                           room.rules.comparisonKeys[index]!
-                                        ] ?? ""
+                                        ] ?? "")
                                       : ""}
                                   </small>
                                   <strong
@@ -1987,17 +1996,13 @@ export function App() {
             {leaderboard === null ? (
               <p className="leaderboard-empty">加载中……</p>
             ) : leaderboard.length === 0 ? (
-              <p className="leaderboard-empty">
-                还没有对战记录——去开一局吧。
-              </p>
+              <p className="leaderboard-empty">还没有对战记录——去开一局吧。</p>
             ) : (
               <ol className="leaderboard-list">
                 {leaderboard.map((entry, index) => (
                   <li
                     key={entry.playerId}
-                    className={
-                      entry.playerId === playerId ? "self" : undefined
-                    }
+                    className={entry.playerId === playerId ? "self" : undefined}
                   >
                     <i>{index + 1}</i>
                     <b>{entry.nickname}</b>
@@ -2012,7 +2017,11 @@ export function App() {
       )}
 
       {showAdmin && (
-        <div className="leaderboard-overlay" role="dialog" aria-label="映射审核">
+        <div
+          className="leaderboard-overlay"
+          role="dialog"
+          aria-label="映射审核"
+        >
           <div className="leaderboard-panel admin-panel">
             <header>
               <h2>映射审核</h2>
@@ -2050,7 +2059,9 @@ export function App() {
                 {adminError && <p className="admin-error">{adminError}</p>}
                 {adminSuggestions === null ? (
                   <p className="leaderboard-empty">
-                    {adminBusy ? "加载中……" : "尚未加载，点下方按钮拉取待审映射。"}
+                    {adminBusy
+                      ? "加载中……"
+                      : "尚未加载，点下方按钮拉取待审映射。"}
                   </p>
                 ) : adminSuggestions.length === 0 ? (
                   <p className="leaderboard-empty">没有待审核的映射建议。</p>
@@ -2061,7 +2072,9 @@ export function App() {
                         <div className="admin-titles">
                           <b>{suggestion.canonicalTitle}</b>
                           <small>
-                            {suggestion.source === "bangumi" ? "Bangumi" : "VNDB"}{" "}
+                            {suggestion.source === "bangumi"
+                              ? "Bangumi"
+                              : "VNDB"}{" "}
                             · {suggestion.sourceTitle}
                           </small>
                           <i>

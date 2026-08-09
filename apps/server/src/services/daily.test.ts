@@ -3,7 +3,10 @@ import { defaultRules } from "../rooms.js";
 import { DailyRegistry } from "./daily.js";
 import type { VisualNovel } from "@gal-yiba/shared";
 
-function visualNovel(id: string, overrides: Partial<VisualNovel> = {}): VisualNovel {
+function visualNovel(
+  id: string,
+  overrides: Partial<VisualNovel> = {},
+): VisualNovel {
   return {
     id,
     title: `作品 ${id}`,
@@ -20,6 +23,7 @@ function visualNovel(id: string, overrides: Partial<VisualNovel> = {}): VisualNo
     bangumiVoteCount: 1200,
     animeAdaptation: null,
     ageRating: "all_ages",
+    isOtome: false,
     platforms: ["windows"],
     languages: ["ja"],
     tags: ["悬疑"],

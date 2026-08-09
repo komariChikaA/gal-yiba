@@ -19,6 +19,7 @@ function visualNovel(overrides: Partial<VisualNovel> = {}): VisualNovel {
     bangumiVoteCount: 1200,
     animeAdaptation: "none",
     ageRating: "all_ages",
+    isOtome: false,
     platforms: ["windows"],
     languages: ["ja", "zh-Hans"],
     tags: ["romance", "school"],

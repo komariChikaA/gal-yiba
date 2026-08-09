@@ -22,6 +22,7 @@ const rules: GameRules = {
     excludeTags: ["猎奇"],
     tagMode: "all",
     allAgesOnly: false,
+    includeOtome: false,
     includeChina: false,
     includeWest: false,
     maxTagSpoilerLevel: 0,
@@ -49,6 +50,7 @@ function visualNovel(
     bangumiVoteCount: 1200,
     animeAdaptation: "none",
     ageRating: "all_ages",
+    isOtome: false,
     platforms: ["windows"],
     languages: ["ja"],
     tags: ["悬疑"],
@@ -75,6 +77,26 @@ describe("filterAnswerPool", () => {
         pool: { ...rules.pool, allAgesOnly: true },
       }).map((item) => item.id),
     ).toEqual(["valid"]);
+  });
+
+  it("excludes otome games by default and includes them only when enabled", () => {
+    const catalog = [
+      visualNovel("regular"),
+      visualNovel("otome", { isOtome: true }),
+    ];
+    const rulesWithoutTagFilters: GameRules = {
+      ...rules,
+      pool: { ...rules.pool, includeTags: [], excludeTags: [] },
+    };
+    expect(
+      filterAnswerPool(catalog, rulesWithoutTagFilters).map((item) => item.id),
+    ).toEqual(["regular"]);
+    expect(
+      filterAnswerPool(catalog, {
+        ...rulesWithoutTagFilters,
+        pool: { ...rulesWithoutTagFilters.pool, includeOtome: true },
+      }).map((item) => item.id),
+    ).toEqual(["regular", "otome"]);
   });
 
   it("builds cumulative top-N pools by score rank", () => {

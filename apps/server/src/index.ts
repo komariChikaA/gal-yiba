@@ -46,10 +46,7 @@ const catalogRepository = databasePool
   : null;
 const matchRecorder = new MatchRecorder(databasePool);
 /** 聊天语音消息：内存暂存 30 分钟，供回放/重连拉取。 */
-const chatAudios = new Map<
-  string,
-  { buffer: Buffer; mimeType: string }
->();
+const chatAudios = new Map<string, { buffer: Buffer; mimeType: string }>();
 
 let catalogCache: VisualNovel[] | null = null;
 let catalogCacheAt = 0;
@@ -98,6 +95,7 @@ const gameRulesSchema = z.object({
     excludeTags: z.array(z.string().trim().min(1).max(80)).max(50),
     tagMode: z.enum(["all", "any"]),
     allAgesOnly: z.boolean(),
+    includeOtome: z.boolean().default(false),
     includeChina: z.boolean(),
     includeWest: z.boolean(),
     maxTagSpoilerLevel: z.union([z.literal(0), z.literal(1), z.literal(2)]),
@@ -212,6 +210,8 @@ app.get("/api/catalog/tags", async (request, response, next) => {
     const query = normalizeTitle(String(request.query.q ?? ""));
     const parsedSpoilerLevel = Number(request.query.maxSpoilerLevel ?? 0);
     const allAgesOnly = String(request.query.allAgesOnly ?? "false") === "true";
+    const includeOtome =
+      String(request.query.includeOtome ?? "false") === "true";
     const fameTier = z
       .enum(["novice", "standard", "veteran", "master"])
       .optional()
@@ -222,12 +222,10 @@ app.get("/api/catalog/tags", async (request, response, next) => {
     const catalog = await loadCatalog();
     const counts = new Map<string, number>();
     for (const visualNovel of catalog) {
-      if (
-        fameTier &&
-        !fameTierPoolIncludes(catalog, visualNovel, fameTier)
-      )
+      if (fameTier && !fameTierPoolIncludes(catalog, visualNovel, fameTier))
         continue;
       if (allAgesOnly && visualNovel.ageRating !== "all_ages") continue;
+      if (!includeOtome && visualNovel.isOtome) continue;
       const tags = selectImportantTags(
         visualNovel.tagDetails,
         visualNovel.tags,
@@ -539,8 +537,7 @@ io.on("connection", (socket) => {
         throw new Error("AUDIO_EMPTY");
       if (raw.byteLength > 1_000_000) throw new Error("AUDIO_TOO_LARGE");
       const mimeType =
-        typeof data.mimeType === "string" &&
-        data.mimeType.startsWith("audio/")
+        typeof data.mimeType === "string" && data.mimeType.startsWith("audio/")
           ? data.mimeType
           : "audio/webm";
       const audioId = randomUUID();

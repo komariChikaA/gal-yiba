@@ -24,6 +24,7 @@ function visualNovel(
     bangumiVoteCount: 1_500,
     animeAdaptation: null,
     ageRating: null,
+    isOtome: false,
     platforms: ["windows"],
     languages: ["ja"],
     tags: ["Mystery"],
@@ -101,9 +102,7 @@ describe("searchCatalog language priority", () => {
   });
 
   it("prefers the Chinese alias within one entry when scores tie", () => {
-    const catalog = [
-      visualNovel("1", "Neko", ["Dev"], ["猫の日", "猫日月"]),
-    ];
+    const catalog = [visualNovel("1", "Neko", ["Dev"], ["猫の日", "猫日月"])];
     const results = searchCatalog(catalog, "猫");
     expect(results[0]?.match.value).toBe("猫日月");
   });

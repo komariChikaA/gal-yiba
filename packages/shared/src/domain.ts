@@ -84,6 +84,7 @@ export interface VisualNovel {
   bangumiVoteCount: number | null;
   animeAdaptation: AnimeAdaptation | null;
   ageRating: AgeRating | null;
+  isOtome: boolean;
   platforms: string[] | null;
   languages: string[] | null;
   tags: string[] | null;
@@ -98,6 +99,8 @@ export interface PoolFilter {
   excludeTags: string[];
   tagMode: "all" | "any";
   allAgesOnly: boolean;
+  /** Include otome games in the answer pool. Disabled by default. */
+  includeOtome: boolean;
   /** 把中国本土作品纳入题池（默认关闭，仅日系）。 */
   includeChina: boolean;
   /** 把非日本非中国（欧美等）作品纳入题池（默认关闭）。 */

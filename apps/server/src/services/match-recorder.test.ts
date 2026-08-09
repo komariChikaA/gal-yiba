@@ -21,6 +21,7 @@ function report(overrides: Partial<MatchReport> = {}): MatchReport {
         excludeTags: [],
         tagMode: "all",
         allAgesOnly: false,
+        includeOtome: false,
         includeChina: false,
         includeWest: false,
         maxTagSpoilerLevel: 0,
@@ -82,8 +83,12 @@ describe("MatchRecorder", () => {
   it("records a finished match across all three tables", async () => {
     const recorder = new MatchRecorder(pool);
     await recorder.record(report());
-    const matches = await pool.query("SELECT room_code, mode, status FROM match_records");
-    expect(matches.rows).toEqual([{ room_code: "ABCDE", mode: "duel", status: "finished" }]);
+    const matches = await pool.query(
+      "SELECT room_code, mode, status FROM match_records",
+    );
+    expect(matches.rows).toEqual([
+      { room_code: "ABCDE", mode: "duel", status: "finished" },
+    ]);
     const players = await pool.query(
       "SELECT nickname, wins, is_winner FROM match_players ORDER BY wins DESC",
     );
@@ -107,7 +112,9 @@ describe("MatchRecorder", () => {
     const recorder = new MatchRecorder(pool);
     await recorder.record(report());
     await recorder.record(report());
-    const matches = await pool.query("SELECT count(*)::int AS n FROM match_records");
+    const matches = await pool.query(
+      "SELECT count(*)::int AS n FROM match_records",
+    );
     expect(matches.rows[0]!.n).toBe(1);
   });
   it("allows a rematched room to be recorded again after forget", async () => {
@@ -115,7 +122,9 @@ describe("MatchRecorder", () => {
     await recorder.record(report());
     recorder.forget("ABCDE");
     await recorder.record(report({ startedAt: "2026-08-09T00:00:00.000Z" }));
-    const matches = await pool.query("SELECT count(*)::int AS n FROM match_records");
+    const matches = await pool.query(
+      "SELECT count(*)::int AS n FROM match_records",
+    );
     expect(matches.rows[0]!.n).toBe(2);
   });
 

@@ -19,6 +19,7 @@ function visualNovel(id: string): VisualNovel {
     bangumiVoteCount: 1200,
     animeAdaptation: null,
     ageRating: "all_ages",
+    isOtome: false,
     platforms: ["windows"],
     languages: ["ja"],
     tags: ["悬疑"],
@@ -51,6 +52,7 @@ describe("RoomRegistry", () => {
       "tags",
     ]);
     expect(created.room.rules.roundTimeSeconds).toBe(300);
+    expect(created.room.rules.pool.includeOtome).toBe(false);
   });
 
   it("allows only the host to change enabled comparison fields", () => {
@@ -241,9 +243,7 @@ describe("best-of rounds", () => {
     expect(first.room.phase).toBe("round_result");
     expect(first.room.round?.roundNumber).toBe(1);
     expect(first.room.round?.answer?.title).toBe("作品 answer");
-    expect(first.room.intermissionDeadlineAt).toBe(
-      "2026-08-08T00:01:05.000Z",
-    );
+    expect(first.room.intermissionDeadlineAt).toBe("2026-08-08T00:01:05.000Z");
     expect(first.room.scores).toEqual([
       { playerId: host.session.playerId, wins: 0 },
       { playerId: guest.session.playerId, wins: 1 },
@@ -322,9 +322,7 @@ describe("best-of rounds", () => {
     for (let round = 1; round <= 3; round += 1) {
       const expired = registry.expire(
         host.room.code,
-        new Date(
-          `2026-08-08T00:${String(round * 6).padStart(2, "0")}:00.000Z`,
-        ),
+        new Date(`2026-08-08T00:${String(round * 6).padStart(2, "0")}:00.000Z`),
       );
       if (round < 3) {
         expect(expired?.phase).toBe("round_result");
@@ -416,9 +414,9 @@ describe("rematch in the same room", () => {
     expect(() =>
       registry.rematch(host.room.code, guest.session.playerId),
     ).toThrow("HOST_ONLY");
-    expect(
-      registry.rematch(host.room.code, host.session.playerId).phase,
-    ).toBe("lobby");
+    expect(registry.rematch(host.room.code, host.session.playerId).phase).toBe(
+      "lobby",
+    );
   });
 });
 

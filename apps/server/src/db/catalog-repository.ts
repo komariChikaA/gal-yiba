@@ -18,6 +18,28 @@ const curatedVndbProducerFamily = new Map([
   ["p12215", "yuzusoft"],
 ]);
 
+const bangumiOtomeTags = new Set([
+  "乙女",
+  "乙女向",
+  "乙女游戏",
+  "乙女遊戲",
+  "乙女ゲー",
+  "女性向",
+  "女性向け",
+  "otome",
+  "otomegame",
+]);
+
+function sourceRecordIsOtome(record: SourceVisualNovel): boolean {
+  if (record.isOtome != null) return record.isOtome;
+  if (record.source === "vndb") {
+    return record.tags.some((tag) => tag.id === "g542");
+  }
+  return record.tags.some((tag) =>
+    bangumiOtomeTags.has(normalizeTitle(tag.name)),
+  );
+}
+
 function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
   if (value && typeof value === "object") {
@@ -526,6 +548,9 @@ export class CatalogRepository {
         sourceAgeRating === "all_ages" || sourceAgeRating === "restricted"
           ? sourceAgeRating
           : null,
+      isOtome: vndbRecord
+        ? sourceRecordIsOtome(vndbRecord)
+        : records.some(sourceRecordIsOtome),
       platforms: normalizeComparisonPlatforms(
         records.flatMap((record) => record.platforms),
       ),

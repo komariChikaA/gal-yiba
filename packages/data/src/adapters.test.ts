@@ -55,6 +55,13 @@ describe("VndbClient", () => {
                   spoiler: 0,
                   category: "cont",
                 },
+                {
+                  id: "g542",
+                  name: "Otome Game",
+                  rating: 2.4,
+                  spoiler: 0,
+                  category: "tech",
+                },
               ],
             },
           ],
@@ -159,6 +166,7 @@ describe("VndbClient", () => {
     expect(page.items[0]?.publisherIds).toEqual(["p2"]);
     expect(page.items[0]?.publishers).toEqual(["Publisher"]);
     expect(page.items[0]?.ageRating).toBe("restricted");
+    expect(page.items[0]?.isOtome).toBe(true);
     expect(page.items[0]?.animeAdaptation).toBe("has_adaptation");
     expect(page.items[0]?.heroineHairColors).toEqual(["blue", "brown"]);
     expect(page.items[0]?.seriesIds).toEqual(["v17", "v13"]);
@@ -366,7 +374,10 @@ describe("BangumiClient", () => {
               platform: "PC",
               nsfw: false,
               rating: { score: 7.4, total: 100 },
-              tags: [{ name: "Galgame", count: 80 }],
+              tags: [
+                { name: "Galgame", count: 80 },
+                { name: "乙女向", count: 35 },
+              ],
             },
           ],
         }),
@@ -405,6 +416,7 @@ describe("BangumiClient", () => {
     expect(page.items[0]?.title).toBe("示例");
     expect(page.items[0]?.ageRating).toBe("unknown");
     expect(page.items[0]?.animeAdaptation).toBe("announced");
+    expect(page.items[0]?.isOtome).toBe(true);
     expect(fetcher.mock.calls[1]?.[0]).toContain("/subjects/123/subjects");
   });
 
