@@ -153,6 +153,74 @@ export class CatalogRepository {
     return result.rows.map((row) => row.normalized);
   }
 
+  /** 列出还没有 verified Bangumi 链接的规范作品（含其 VNDB 来源记录）。 */
+  async listCanonicalsMissingBangumi(
+    limit = 100,
+    offset = 0,
+  ): Promise<
+    Array<{
+      canonicalId: string;
+      displayTitle: string;
+      vndbRecord: SourceVisualNovel;
+    }>
+  > {
+    const result = await this.database.query<{
+      canonical_id: string;
+      display_title: string;
+      normalized: SourceVisualNovel;
+    }>(
+      `SELECT c.id AS canonical_id, c.display_title, sr.normalized
+       FROM canonical_visual_novels c
+       JOIN source_links slv
+         ON slv.canonical_id = c.id
+        AND slv.source = 'vndb'
+        AND slv.link_status = 'verified'
+       JOIN source_records sr
+         ON sr.source = 'vndb'
+        AND sr.source_id = slv.source_id
+       LEFT JOIN source_links slb
+         ON slb.canonical_id = c.id
+        AND slb.source = 'bangumi'
+        AND slb.link_status = 'verified'
+       WHERE c.enabled = true
+         AND slb.source_id IS NULL
+       ORDER BY c.created_at ASC
+       LIMIT $1 OFFSET $2`,
+      [Math.max(1, Math.min(5_000, limit)), Math.max(0, offset)],
+    );
+    return result.rows.map((row) => ({
+      canonicalId: row.canonical_id,
+      displayTitle: row.display_title,
+      vndbRecord: row.normalized,
+    }));
+  }
+
+  /** 挂载已验证的 Bangumi 链接（写入来源记录 + verified 链接）。 */
+  async attachBangumiVerified(
+    canonicalId: string,
+    record: SourceVisualNovel,
+    confidence: number,
+    evidence: object,
+  ): Promise<void> {
+    await this.upsertSourceRecord(record);
+    await this.database.query(
+      `INSERT INTO source_links
+        (canonical_id, source, source_id, confidence, link_status, evidence)
+       VALUES ($1, 'bangumi', $2, $3, 'verified', $4::jsonb)
+       ON CONFLICT (source, source_id) DO UPDATE SET
+         canonical_id = EXCLUDED.canonical_id,
+         confidence = EXCLUDED.confidence,
+         link_status = EXCLUDED.link_status,
+         evidence = EXCLUDED.evidence`,
+      [
+        canonicalId,
+        record.sourceId,
+        Math.round(confidence),
+        JSON.stringify(evidence),
+      ],
+    );
+  }
+
   async listSourceRecordsForMapping(
     source: SourceVisualNovel["source"],
     limit = 5_000,

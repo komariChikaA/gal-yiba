@@ -114,6 +114,42 @@ export class BangumiClient {
     return { items, hasMore: false, nextCursor: null };
   }
 
+  /** 轻量搜索：返回原始条目，不逐条深取动漫化关系（回填场景用）。 */
+  async searchRaw(keyword: string, limit = 10): Promise<BangumiSubject[]> {
+    const response = await requestJson<BangumiSearchResponse>(
+      this.fetcher,
+      `${this.baseUrl}/v0/search/subjects?limit=${Math.min(50, Math.max(1, limit))}&offset=0`,
+      {
+        method: "POST",
+        headers: this.headers,
+        body: JSON.stringify({
+          keyword,
+          sort: "match",
+          filter: { type: [4] },
+        }),
+      },
+    );
+    return response.data;
+  }
+
+  /** 详情：取条目完整字段（含动漫化关系判定）。 */
+  async subjectDetail(subjectId: number): Promise<SourceVisualNovel> {
+    const subject = await requestJson<BangumiSubject>(
+      this.fetcher,
+      `${this.baseUrl}/v0/subjects/${subjectId}`,
+      { headers: this.headers },
+    );
+    return this.normalize(
+      subject,
+      await this.loadAnimeAdaptation(subjectId),
+    );
+  }
+
+  /** 原始条目转 SourceVisualNovel（动漫化未知，用于评分）。 */
+  normalizeRaw(subject: BangumiSubject): SourceVisualNovel {
+    return this.normalize(subject, "unknown");
+  }
+
   private async loadAnimeAdaptation(
     subjectId: number,
   ): Promise<"none" | "announced" | "has_adaptation" | "unknown"> {

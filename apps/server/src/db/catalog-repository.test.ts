@@ -221,6 +221,57 @@ describe("CatalogRepository", () => {
       ],
     });
   });
+
+  it("lists canonicals still missing a verified Bangumi link", async () => {
+    const vndbA = sourceRecord({ sourceId: "v1", title: "Alpha" });
+    const vndbB = sourceRecord({ sourceId: "v2", title: "Beta" });
+    await repository.upsertSourceRecord(vndbA);
+    await repository.upsertSourceRecord(vndbB);
+    const idA = await repository.createCanonicalFromSource(vndbA);
+    const idB = await repository.createCanonicalFromSource(vndbB);
+    // B 已有 verified bangumi 链接
+    const bangumiB = sourceRecord({
+      source: "bangumi",
+      sourceId: "2",
+      title: "Beta",
+    });
+    await repository.attachBangumiVerified(idB, bangumiB, 90, {
+      exactTitle: true,
+    });
+
+    const missing = await repository.listCanonicalsMissingBangumi(10, 0);
+    expect(missing.map((item) => item.canonicalId)).toEqual([idA]);
+    expect(missing[0]?.vndbRecord.title).toBe("Alpha");
+  });
+
+  it("attaches verified Bangumi data that merges into the catalog", async () => {
+    const vndb = sourceRecord();
+    await repository.upsertSourceRecord(vndb);
+    const canonicalId = await repository.createCanonicalFromSource(vndb);
+    const bangumi = sourceRecord({
+      source: "bangumi",
+      sourceId: "123",
+      title: "Ever17 时空轮回",
+      alternativeTitles: ["Ever17"],
+      rating: 8.4,
+      voteCount: 1200,
+      releaseDate: "2002-08-29",
+    });
+    await repository.attachBangumiVerified(canonicalId, bangumi, 95, {
+      exactTitle: true,
+      releaseYearDelta: 0,
+    });
+
+    const catalog = await repository.listVisualNovels();
+    expect(catalog[0]).toMatchObject({
+      bangumiRating: 8.4,
+      bangumiVoteCount: 1200,
+    });
+    expect(catalog[0]?.aliases).toContain("Ever17 时空轮回");
+    const missing = await repository.listCanonicalsMissingBangumi(10, 0);
+    expect(missing).toEqual([]);
+  });
+
 });
 
 describe("sourceRecordHash", () => {

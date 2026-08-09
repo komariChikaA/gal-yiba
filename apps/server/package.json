@@ -11,6 +11,7 @@
     "sync:vndb": "tsx src/cli/sync-catalog.ts vndb",
     "sync:bangumi": "tsx src/cli/sync-catalog.ts bangumi",
     "refresh:vndb": "tsx src/cli/refresh-catalog.ts vndb",
+    "sync:bangumi-backfill": "tsx src/cli/sync-bangumi-backfill.ts",
     "refresh:bangumi": "tsx src/cli/refresh-catalog.ts bangumi",
     "mappings:list": "tsx src/cli/review-mappings.ts list",
     "mappings:rebuild": "tsx src/cli/review-mappings.ts rebuild",

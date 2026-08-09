@@ -17,6 +17,7 @@ import {
   type FameTier,
   type GameMode,
   type GameRules,
+  type VisualNovel,
 } from "@gal-yiba/shared";
 import {
   CatalogRepository,
@@ -50,8 +51,7 @@ const chatAudios = new Map<
   { buffer: Buffer; mimeType: string }
 >();
 
-let catalogCache: Awaited<ReturnType<typeof CatalogRepository.prototype.listVisualNovels>> | null =
-  null;
+let catalogCache: VisualNovel[] | null = null;
 let catalogCacheAt = 0;
 
 async function loadCatalog() {
