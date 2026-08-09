@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RoomRegistry } from "./rooms.js";
-import type { VisualNovel } from "@gal-yiba/shared";
+import { defaultComparisonKeys, type VisualNovel } from "@gal-yiba/shared";
 
 function visualNovel(id: string): VisualNovel {
   return {
@@ -115,6 +115,26 @@ describe("RoomRegistry", () => {
     ]);
   });
 
+  it("keeps quick-match rooms on the default comparison rules", () => {
+    const registry = new RoomRegistry();
+    const created = registry.create(
+      "匹配玩家",
+      "duel",
+      "standard",
+      undefined,
+      undefined,
+      true,
+    );
+    expect(created.room.rulesLocked).toBe(true);
+    expect(created.room.rules.comparisonKeys).toEqual(defaultComparisonKeys);
+    expect(() =>
+      registry.updateRules(created.room.code, created.session.playerId, {
+        ...created.room.rules,
+        comparisonKeys: ["developer", "releaseYear", "tags"],
+      }),
+    ).toThrow("MATCHMAKING_RULES_LOCKED");
+  });
+
   it("restores the same player with a scoped reconnect token", () => {
     const registry = new RoomRegistry();
     const created = registry.create("房主");
@@ -181,6 +201,26 @@ describe("RoomRegistry", () => {
         visualNovel("answer"),
       ]),
     ).toThrow("PLAYERS_NOT_READY");
+  });
+
+  it("kicks disconnected unready players when the host starts", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "race");
+    const readyGuest = registry.join(host.room.code, "已准备玩家");
+    const offlineGuest = registry.join(host.room.code, "离线未准备玩家");
+    registry.setReady(host.room.code, readyGuest.session.playerId, true);
+    registry.disconnect(host.room.code, offlineGuest.session.playerId);
+
+    const started = registry.start(host.room.code, host.session.playerId, [
+      visualNovel("answer"),
+    ]);
+    expect(started.players.map((player) => player.id)).not.toContain(
+      offlineGuest.session.playerId,
+    );
+    expect(started.round?.players).toHaveLength(2);
+    expect(() =>
+      registry.reconnect(host.room.code, offlineGuest.session.reconnectToken),
+    ).toThrow("INVALID_RECONNECT_TOKEN");
   });
 
   it("starts a solo room with one player", () => {
@@ -465,6 +505,14 @@ describe("stable player identity and match reports", () => {
     expect(guest.session.playerId).toBe(guestId);
     expect(host.room.players.map((player) => player.id)).toContain(hostId);
     expect(guest.room.players.map((player) => player.id)).toContain(guestId);
+  });
+
+  it("does not let the same stable player identity occupy two room seats", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel", "standard", hostId);
+    expect(() => registry.join(host.room.code, "另一个标签页", hostId)).toThrow(
+      "PLAYER_ALREADY_IN_ROOM",
+    );
   });
 
   it("exposes a finished single-round match report", () => {

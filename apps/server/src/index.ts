@@ -30,6 +30,7 @@ import { MatchRecorder } from "./services/match-recorder.js";
 import { searchCatalog } from "./services/catalog-search.js";
 import { CatalogSyncService } from "./services/catalog-sync.js";
 import { demoCatalog } from "./demo-catalog.js";
+import { MatchmakingPool } from "./matchmaking.js";
 const port = Number(process.env.PORT ?? 3000);
 const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
 const app = express();
@@ -38,6 +39,7 @@ const io = new Server(httpServer, {
   cors: { origin: webOrigin, credentials: true },
 });
 const rooms = new RoomRegistry();
+const matchmaking = new MatchmakingPool();
 const dailyGames = new DailyRegistry();
 const databasePool = process.env.DATABASE_URL ? createDatabasePool() : null;
 if (databasePool) await migrateDatabase(databasePool);
@@ -72,6 +74,12 @@ const joinSchema = z.object({
 const createRoomSchema = z.object({
   nickname: nicknameSchema,
   mode: z.enum(["solo", "duel", "race"]),
+  fameTier: z.enum(["novice", "standard", "veteran", "experienced", "master"]),
+  playerId: playerIdSchema,
+  featureCode: featureCodeSchema,
+});
+const matchmakingSchema = z.object({
+  nickname: nicknameSchema,
   fameTier: z.enum(["novice", "standard", "veteran", "experienced", "master"]),
   playerId: playerIdSchema,
   featureCode: featureCodeSchema,
@@ -169,6 +177,19 @@ function broadcastRealtimeStats(): void {
   io.emit("presence:updated", realtimeStats());
 }
 
+function matchmakingStats() {
+  return { ...matchmaking.stats(), updatedAt: new Date().toISOString() };
+}
+
+function broadcastMatchmakingState(): void {
+  io.emit("matchmaking:stats", matchmakingStats());
+  for (const entry of matchmaking.entries()) {
+    io.to(entry.socketId).emit("matchmaking:position", {
+      position: matchmaking.position(entry.socketId),
+    });
+  }
+}
+
 async function persistMatchIfFinished(roomCode: string): Promise<void> {
   try {
     await matchRecorder.record(rooms.getMatchReport(roomCode));
@@ -212,6 +233,11 @@ app.get("/api/health", (_request, response) => {
 app.get("/api/stats/realtime", (_request, response) => {
   response.setHeader("Cache-Control", "no-store");
   response.json(realtimeStats());
+});
+
+app.get("/api/matchmaking/stats", (_request, response) => {
+  response.setHeader("Cache-Control", "no-store");
+  response.json(matchmakingStats());
 });
 
 app.get("/api/rules/options", (_request, response) => {
@@ -471,9 +497,106 @@ if (process.env.NODE_ENV === "production") {
 
 io.on("connection", (socket) => {
   broadcastRealtimeStats();
+  socket.emit("matchmaking:stats", matchmakingStats());
+
+  socket.on("matchmaking:join", async (payload: unknown, acknowledge) => {
+    try {
+      if (typeof socket.data.roomCode === "string")
+        throw new Error("ALREADY_IN_ROOM");
+      const input = matchmakingSchema.parse(payload);
+      const outcome = matchmaking.enqueue({
+        socketId: socket.id,
+        nickname: input.nickname,
+        fameTier: input.fameTier,
+        ...(input.playerId ? { playerId: input.playerId } : {}),
+        ...(input.featureCode ? { featureCode: input.featureCode } : {}),
+        joinedAt: Date.now(),
+      });
+      if (outcome.status === "waiting") {
+        acknowledge({
+          ok: true,
+          status: "waiting",
+          position: outcome.position,
+        });
+        broadcastMatchmakingState();
+        return;
+      }
+
+      const opponentSocket = io.of("/").sockets.get(outcome.opponent.socketId);
+      if (!opponentSocket) {
+        const retry = matchmaking.enqueue({
+          socketId: socket.id,
+          nickname: input.nickname,
+          fameTier: input.fameTier,
+          ...(input.playerId ? { playerId: input.playerId } : {}),
+          ...(input.featureCode ? { featureCode: input.featureCode } : {}),
+          joinedAt: Date.now(),
+        });
+        acknowledge({
+          ok: true,
+          status: "waiting",
+          position: retry.status === "waiting" ? retry.position : 1,
+        });
+        broadcastMatchmakingState();
+        return;
+      }
+
+      const created = rooms.create(
+        outcome.opponent.nickname,
+        "duel",
+        outcome.opponent.fameTier,
+        outcome.opponent.playerId,
+        outcome.opponent.featureCode,
+        true,
+      );
+      const joined = rooms.join(
+        created.room.code,
+        input.nickname,
+        input.playerId,
+        input.featureCode,
+      );
+      const matchedRoom = rooms.get(created.room.code);
+      await opponentSocket.join(matchedRoom.code);
+      await socket.join(matchedRoom.code);
+      bindSocketSession(
+        opponentSocket,
+        matchedRoom.code,
+        created.session.playerId,
+      );
+      bindSocketSession(socket, matchedRoom.code, joined.session.playerId);
+      opponentSocket.emit("matchmaking:matched", {
+        ok: true,
+        room: matchedRoom,
+        session: created.session,
+      });
+      socket.emit("matchmaking:matched", {
+        ok: true,
+        room: matchedRoom,
+        session: joined.session,
+      });
+      acknowledge({ ok: true, status: "matched" });
+      broadcastMatchmakingState();
+      await broadcastRoomState(matchedRoom.code);
+    } catch (error) {
+      matchmaking.cancel(socket.id);
+      broadcastMatchmakingState();
+      acknowledge({
+        ok: false,
+        error: error instanceof Error ? error.message : "INVALID_REQUEST",
+      });
+    }
+  });
+
+  socket.on("matchmaking:cancel", (_payload: unknown, acknowledge) => {
+    matchmaking.cancel(socket.id);
+    broadcastMatchmakingState();
+    acknowledge({ ok: true });
+  });
 
   socket.on("room:create", async (payload: unknown, acknowledge) => {
     try {
+      matchmaking.cancel(socket.id);
+      broadcastMatchmakingState();
       const input = createRoomSchema.parse(payload);
       const result = rooms.create(
         input.nickname,
@@ -603,6 +726,8 @@ io.on("connection", (socket) => {
 
   socket.on("room:join", (payload: unknown, acknowledge) => {
     try {
+      matchmaking.cancel(socket.id);
+      broadcastMatchmakingState();
       const input = joinSchema.parse(payload);
       const result = rooms.join(
         input.code,
@@ -625,6 +750,8 @@ io.on("connection", (socket) => {
 
   socket.on("room:reconnect", async (payload: unknown, acknowledge) => {
     try {
+      matchmaking.cancel(socket.id);
+      broadcastMatchmakingState();
       const input = reconnectSchema.parse(payload);
       const result = rooms.reconnect(input.code, input.reconnectToken);
       socket.join(result.room.code);
@@ -679,8 +806,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("room:start", async (_payload: unknown, acknowledge) => {
+    let roomCode: string | null = null;
     try {
       const identity = socketIdentity(socket);
+      roomCode = identity.roomCode;
       const catalog = await loadCatalog();
       if (catalog.length === 0) throw new Error("CATALOG_EMPTY");
       const room = rooms.start(identity.roomCode, identity.playerId, catalog);
@@ -692,6 +821,7 @@ io.on("connection", (socket) => {
         game: rooms.getPlayerGame(room.code, identity.playerId),
       });
     } catch (error) {
+      if (roomCode) await broadcastRoomState(roomCode).catch(() => undefined);
       acknowledge({
         ok: false,
         error: error instanceof Error ? error.message : "INVALID_REQUEST",
@@ -725,6 +855,8 @@ io.on("connection", (socket) => {
   );
 
   socket.on("disconnect", () => {
+    matchmaking.cancel(socket.id);
+    broadcastMatchmakingState();
     try {
       const identity = socketIdentity(socket);
       const room = rooms.disconnect(identity.roomCode, identity.playerId);

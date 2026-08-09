@@ -2755,3 +2755,68 @@ button {
   border-color: var(--coral);
   box-shadow: 0 0 10px color-mix(in srgb, var(--coral) 45%, transparent);
 }
+
+/* 测试期提示保持轻量，不挤压进入游戏后的主界面。 */
+.test-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 1420px;
+  margin: 14px auto 0;
+  padding: 10px 18px;
+  border: 1px solid color-mix(in srgb, var(--honey) 70%, var(--line));
+  border-radius: 14px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--honey) 18%, var(--surface));
+  box-shadow: 0 8px 22px var(--shadow);
+  font-size: 13px;
+}
+.test-notice b {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: var(--ink-strong);
+  background: color-mix(in srgb, var(--honey) 38%, var(--surface-solid));
+}
+.entry-actions .matchmaking-button {
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  border-color: color-mix(in srgb, var(--honey) 72%, var(--line-strong));
+  color: var(--ink-strong);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--honey) 28%, var(--surface-solid)),
+    color-mix(in srgb, var(--coral-soft) 46%, var(--surface-solid))
+  );
+  font-weight: 800;
+}
+.entry-actions .matchmaking-button small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+}
+.entry-actions .matchmaking-button.waiting {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--coral) 16%, transparent);
+}
+.mode-picker button:disabled,
+.fame-picker button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 1480px) {
+  .test-notice {
+    margin-inline: 20px;
+  }
+}
+
+@media (max-width: 640px) {
+  .test-notice {
+    align-items: flex-start;
+    margin-inline: 12px;
+    font-size: 12px;
+  }
+}
