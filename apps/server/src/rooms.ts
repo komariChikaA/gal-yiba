@@ -28,6 +28,7 @@ export interface RoomSnapshot {
   hostPlayerId: string;
   players: RoomPlayer[];
   rules: GameRules;
+  rulesLocked: boolean;
   round: RoomRoundSnapshot | null;
   winnerPlayerId: string | null;
   matchWinnerPlayerId: string | null;
@@ -166,6 +167,7 @@ function snapshot(room: MutableRoom): RoomSnapshot {
     hostPlayerId: room.hostPlayerId,
     players: Array.from(room.players.values(), (player) => ({ ...player })),
     rules: cloneRules(room.rules),
+    rulesLocked: room.rulesLocked,
     round: room.round
       ? {
           roundNumber: room.round.roundNumber,
@@ -232,6 +234,7 @@ export class RoomRegistry {
     fameTier: FameTier = "veteran",
     playerIdInput?: string,
     featureCodeInput?: string,
+    rulesLocked = false,
   ): { room: RoomSnapshot; session: PlayerSession } {
     let code = createRoomCode();
     while (this.rooms.has(code)) code = createRoomCode();
@@ -254,6 +257,7 @@ export class RoomRegistry {
         mode,
         pool: { ...cloneRules(defaultRules).pool, fameTier },
       },
+      rulesLocked,
       round: null,
       winnerPlayerId: null,
       matchWinnerPlayerId: null,
@@ -282,6 +286,8 @@ export class RoomRegistry {
     if (room.rules.mode === "solo") throw new Error("SOLO_ROOM");
     const capacity = room.rules.mode === "duel" ? 2 : 8;
     if (room.players.size >= capacity) throw new Error("ROOM_FULL");
+    if (playerIdInput && room.players.has(playerIdInput))
+      throw new Error("PLAYER_ALREADY_IN_ROOM");
 
     const playerId = playerIdInput ?? randomUUID();
     const reconnectToken = randomUUID();
@@ -335,6 +341,7 @@ export class RoomRegistry {
     const room = this.requireRoom(code);
     if (room.phase !== "lobby") throw new Error("ROOM_ALREADY_STARTED");
     if (room.hostPlayerId !== playerId) throw new Error("HOST_ONLY");
+    if (room.rulesLocked) throw new Error("MATCHMAKING_RULES_LOCKED");
     if (rules.mode !== room.rules.mode) throw new Error("MODE_IMMUTABLE");
     if (rules.comparisonKeys.length < 3)
       throw new Error("TOO_FEW_COMPARISON_KEYS");
@@ -378,6 +385,11 @@ export class RoomRegistry {
     const room = this.requireRoom(code);
     if (room.phase !== "lobby") throw new Error("ROOM_ALREADY_STARTED");
     if (room.hostPlayerId !== playerId) throw new Error("HOST_ONLY");
+    for (const player of [...room.players.values()]) {
+      if (player.id !== playerId && !player.connected && !player.ready) {
+        this.removePlayerState(room, player.id);
+      }
+    }
     const connectedPlayers = [...room.players.values()].filter(
       (player) => player.connected,
     );
@@ -669,14 +681,7 @@ export class RoomRegistry {
     if (!room) return null;
     if (!room.players.has(playerId)) return snapshot(room);
 
-    room.players.delete(playerId);
-    room.scores.delete(playerId);
-    room.round?.playerGames.delete(playerId);
-    for (const [token, identity] of this.reconnectTokens) {
-      if (identity.roomCode === code && identity.playerId === playerId) {
-        this.reconnectTokens.delete(token);
-      }
-    }
+    this.removePlayerState(room, playerId);
     if (room.players.size === 0) {
       this.rooms.delete(code);
       return null;
@@ -708,5 +713,17 @@ export class RoomRegistry {
     const room = this.rooms.get(code);
     if (!room) throw new Error("ROOM_NOT_FOUND");
     return room;
+  }
+
+  private removePlayerState(room: MutableRoom, playerId: string): void {
+    room.players.delete(playerId);
+    room.scores.delete(playerId);
+    room.featureCodes.delete(playerId);
+    room.round?.playerGames.delete(playerId);
+    for (const [token, identity] of this.reconnectTokens) {
+      if (identity.roomCode === room.code && identity.playerId === playerId) {
+        this.reconnectTokens.delete(token);
+      }
+    }
   }
 }

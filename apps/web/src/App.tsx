@@ -132,6 +132,7 @@ interface RoomSnapshot {
   hostPlayerId: string;
   players: RoomPlayer[];
   rules: GameRules;
+  rulesLocked: boolean;
   round: {
     roundNumber: number;
     startedAt: string;
@@ -237,6 +238,12 @@ interface RealtimeStats {
   updatedAt: string;
 }
 
+interface MatchmakingStats {
+  total: number;
+  byFameTier: Record<FameTier, number>;
+  updatedAt: string;
+}
+
 interface MappingSuggestion {
   canonicalId: string;
   canonicalTitle: string;
@@ -262,6 +269,11 @@ export function App() {
   });
   const [connected, setConnected] = useState(socket.connected);
   const [realtimeStats, setRealtimeStats] = useState<RealtimeStats | null>(
+    null,
+  );
+  const [matchmakingStats, setMatchmakingStats] =
+    useState<MatchmakingStats | null>(null);
+  const [matchmakingPosition, setMatchmakingPosition] = useState<number | null>(
     null,
   );
   const [featureCode, setFeatureCode] = useState(() => loadFeatureCode());
@@ -321,6 +333,7 @@ export function App() {
   const [customTag, setCustomTag] = useState("");
 
   const isHost = room != null && session?.playerId === room.hostPlayerId;
+  const canEditRules = isHost && room?.rulesLocked !== true;
   const currentPlayer = room?.players.find(
     (player) => player.id === session?.playerId,
   );
@@ -398,6 +411,17 @@ export function App() {
       )
       .then((body) => setFameCounts(body.counts))
       .catch(() => setFameCounts(null));
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/matchmaking/stats", { signal: controller.signal })
+      .then((response) => response.json() as Promise<MatchmakingStats>)
+      .then(setMatchmakingStats)
+      .catch((requestError: Error) => {
+        if (requestError.name !== "AbortError") setMatchmakingStats(null);
+      });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -558,7 +582,10 @@ export function App() {
       }
     };
     const onConnect = () => tryReconnect();
-    const onDisconnect = () => setConnected(false);
+    const onDisconnect = () => {
+      setConnected(false);
+      setMatchmakingPosition(null);
+    };
     const onRoomUpdated = (nextRoom: RoomSnapshot) => {
       setRoom(nextRoom);
       setSelected(nextRoom.rules.comparisonKeys);
@@ -572,11 +599,22 @@ export function App() {
     const onGameState = (nextGame: PublicGameSession) => setGame(nextGame);
     const onRealtimeStats = (nextStats: RealtimeStats) =>
       setRealtimeStats(nextStats);
+    const onMatchmakingStats = (nextStats: MatchmakingStats) =>
+      setMatchmakingStats(nextStats);
+    const onMatchmakingPosition = (payload: { position: number | null }) =>
+      setMatchmakingPosition(payload.position);
+    const onMatchmakingMatched = (response: RoomSuccess) => {
+      setMatchmakingPosition(null);
+      handleRoomResponse(response);
+    };
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("room:updated", onRoomUpdated);
     socket.on("game:state", onGameState);
     socket.on("presence:updated", onRealtimeStats);
+    socket.on("matchmaking:stats", onMatchmakingStats);
+    socket.on("matchmaking:position", onMatchmakingPosition);
+    socket.on("matchmaking:matched", onMatchmakingMatched);
 
     socket.on("room:chat", (message: ChatMessage) =>
       setChatMessages((current) => [...current, message].slice(-100)),
@@ -588,6 +626,9 @@ export function App() {
       socket.off("room:updated", onRoomUpdated);
       socket.off("game:state", onGameState);
       socket.off("presence:updated", onRealtimeStats);
+      socket.off("matchmaking:stats", onMatchmakingStats);
+      socket.off("matchmaking:position", onMatchmakingPosition);
+      socket.off("matchmaking:matched", onMatchmakingMatched);
     };
   }, []);
 
@@ -599,7 +640,7 @@ export function App() {
   const selectedSet = useMemo(() => new Set(selected), [selected]);
 
   useEffect(() => {
-    if (!room || !isHost || room.phase !== "lobby") return;
+    if (!room || !canEditRules || room.phase !== "lobby") return;
     const controller = new AbortController();
     void fetch(
       `/api/catalog/tags?maxSpoilerLevel=${room.rules.pool.maxTagSpoilerLevel}&allAgesOnly=${room.rules.pool.allAgesOnly}&includeOtome=${room.rules.pool.includeOtome}&fameTier=${room.rules.pool.fameTier}`,
@@ -625,7 +666,7 @@ export function App() {
     room?.rules.pool.allAgesOnly,
     room?.rules.pool.includeOtome,
     room?.rules.pool.fameTier,
-    isHost,
+    canEditRules,
   ]);
 
   useEffect(() => {
@@ -822,6 +863,49 @@ export function App() {
       handleRoomResponse,
     );
   }
+
+  function joinMatchmaking() {
+    setError("");
+    socket.emit(
+      "matchmaking:join",
+      {
+        nickname: nickname.trim(),
+        fameTier: selectedFameTier,
+        playerId,
+        featureCode: featureCode || undefined,
+      },
+      (response: {
+        ok: boolean;
+        status?: "waiting" | "matched";
+        position?: number;
+        error?: string;
+      }) => {
+        if (!response.ok) {
+          setMatchmakingPosition(null);
+          setError(response.error ?? "MATCHMAKING_FAILED");
+          return;
+        }
+        if (response.status === "waiting") {
+          setMatchmakingPosition(response.position ?? 1);
+        }
+      },
+    );
+  }
+
+  function cancelMatchmaking() {
+    socket.emit(
+      "matchmaking:cancel",
+      {},
+      (response: { ok: boolean; error?: string }) => {
+        if (!response.ok) {
+          setError(response.error ?? "MATCHMAKING_CANCEL_FAILED");
+          return;
+        }
+        setMatchmakingPosition(null);
+        setError("");
+      },
+    );
+  }
   function leaveRoom() {
     socket.emit(
       "room:leave",
@@ -870,7 +954,7 @@ export function App() {
   }
 
   function toggleComparison(key: ComparisonKey) {
-    if (!room || !session || !isHost) return;
+    if (!room || !session || !canEditRules) return;
     const next = selectedSet.has(key)
       ? selected.filter((item) => item !== key)
       : [...selected, key];
@@ -894,7 +978,7 @@ export function App() {
   }
 
   function toggleIncludedTag(tag: string) {
-    if (!room || !isHost) return;
+    if (!room || !canEditRules) return;
     const normalized = tag.trim();
     if (!normalized) return;
     const exists = room.rules.pool.includeTags.includes(normalized);
@@ -905,7 +989,7 @@ export function App() {
   }
 
   function addExcludedTag() {
-    if (!room || !isHost) return;
+    if (!room || !canEditRules) return;
     const tag = customTag.trim();
     if (!tag || room.rules.pool.excludeTags.includes(tag)) return;
     saveRules({
@@ -919,7 +1003,7 @@ export function App() {
   }
 
   function addIncludedTag() {
-    if (!room || !isHost) return;
+    if (!room || !canEditRules) return;
     const tag = includedTagInput.trim();
     if (!tag || room.rules.pool.includeTags.includes(tag)) return;
     toggleIncludedTag(tag);
@@ -927,7 +1011,7 @@ export function App() {
   }
 
   function removeExcludedTag(tag: string) {
-    if (!room || !isHost) return;
+    if (!room || !canEditRules) return;
     saveRules({
       ...room.rules,
       pool: {
@@ -1125,6 +1209,10 @@ export function App() {
       </header>
 
       <main id="top">
+        <aside className="test-notice" role="status">
+          <b>测试中</b>
+          <span>本网站正在测试中，每天凌晨有可能会不定时更新内容。</span>
+        </aside>
         {!activeGame && (
           <section className="hero">
             <div className="hero-copy">
@@ -1174,6 +1262,7 @@ export function App() {
                             selectedMode === option.value ? "selected" : ""
                           }
                           onClick={() => setSelectedMode(option.value)}
+                          disabled={matchmakingPosition !== null}
                         >
                           <b>{option.label}</b>
                           <small>{option.description}</small>
@@ -1191,6 +1280,7 @@ export function App() {
                             selectedFameTier === option.value ? "selected" : ""
                           }
                           onClick={() => setSelectedFameTier(option.value)}
+                          disabled={matchmakingPosition !== null}
                           title={option.description}
                         >
                           <b>{option.label}</b>
@@ -1211,16 +1301,35 @@ export function App() {
                     </p>
                   </div>
                   <div className="entry-actions">
+                    {matchmakingPosition === null ? (
+                      <button
+                        className="matchmaking-button"
+                        disabled={!canEnter}
+                        onClick={joinMatchmaking}
+                      >
+                        1v1 快速匹配 · 当前档位池中{" "}
+                        {matchmakingStats?.byFameTier[selectedFameTier] ?? 0} 人
+                        <small>使用系统默认判定标准</small>
+                      </button>
+                    ) : (
+                      <button
+                        className="matchmaking-button waiting"
+                        onClick={cancelMatchmaking}
+                      >
+                        匹配中 · 当前第 {matchmakingPosition} 位
+                        <small>点击取消匹配</small>
+                      </button>
+                    )}
                     <button
                       className="daily-button"
-                      disabled={!connected}
+                      disabled={!connected || matchmakingPosition !== null}
                       onClick={() => void enterDaily()}
                     >
                       每日同题 · 所有人同一天同一题
                     </button>
                     <button
                       className="primary"
-                      disabled={!canEnter}
+                      disabled={!canEnter || matchmakingPosition !== null}
                       onClick={createRoom}
                     >
                       {selectedMode === "solo" ? "进入单人准备" : "创建房间"}
@@ -1233,9 +1342,14 @@ export function App() {
                           setJoinCode(event.target.value.toUpperCase())
                         }
                         placeholder="房间码"
+                        disabled={matchmakingPosition !== null}
                       />
                       <button
-                        disabled={!canEnter || joinCode.length !== 5}
+                        disabled={
+                          !canEnter ||
+                          joinCode.length !== 5 ||
+                          matchmakingPosition !== null
+                        }
                         onClick={joinRoom}
                       >
                         加入
@@ -1324,9 +1438,11 @@ export function App() {
               </div>
               <p>
                 {room
-                  ? isHost
-                    ? "点击切换，房间内即时同步。"
-                    : "本局由房主选择。"
+                  ? room.rulesLocked
+                    ? "快速匹配固定使用系统默认判定标准。"
+                    : isHost
+                      ? "点击切换，房间内即时同步。"
+                      : "本局由房主选择。"
                   : "创建房间后即可自选，至少保留 3 项。"}
               </p>
               <div className="comparison-grid">
@@ -1335,7 +1451,7 @@ export function App() {
                     <button
                       key={key}
                       className={selectedSet.has(key) ? "selected" : ""}
-                      disabled={!isHost}
+                      disabled={!canEditRules}
                       onClick={() => toggleComparison(key)}
                     >
                       <span>{String(index + 1).padStart(2, "0")}</span>
@@ -1366,7 +1482,7 @@ export function App() {
                               ? "selected"
                               : ""
                           }
-                          disabled={!isHost}
+                          disabled={!canEditRules}
                           onClick={() =>
                             saveRules({
                               ...room.rules,
@@ -1403,7 +1519,7 @@ export function App() {
                         className={
                           room.rules.pool.tagMode === "all" ? "selected" : ""
                         }
-                        disabled={!isHost}
+                        disabled={!canEditRules}
                         onClick={() =>
                           saveRules({
                             ...room.rules,
@@ -1417,7 +1533,7 @@ export function App() {
                         className={
                           room.rules.pool.tagMode === "any" ? "selected" : ""
                         }
-                        disabled={!isHost}
+                        disabled={!canEditRules}
                         onClick={() =>
                           saveRules({
                             ...room.rules,
@@ -1441,7 +1557,7 @@ export function App() {
                               ? "selected"
                               : ""
                           }
-                          disabled={!isHost}
+                          disabled={!canEditRules}
                           onClick={() => toggleIncludedTag(tag.name)}
                         >
                           {tag.name}
@@ -1454,7 +1570,7 @@ export function App() {
                   <div className="tag-entry">
                     <input
                       value={includedTagInput}
-                      disabled={!isHost}
+                      disabled={!canEditRules}
                       onChange={(event) =>
                         setIncludedTagInput(event.target.value)
                       }
@@ -1464,7 +1580,7 @@ export function App() {
                       placeholder="自定义包含标签"
                     />
                     <button
-                      disabled={!isHost || !includedTagInput.trim()}
+                      disabled={!canEditRules || !includedTagInput.trim()}
                       onClick={addIncludedTag}
                     >
                       加入
@@ -1475,7 +1591,7 @@ export function App() {
                       {room.rules.pool.includeTags.map((tag) => (
                         <button
                           key={tag}
-                          disabled={!isHost}
+                          disabled={!canEditRules}
                           onClick={() => toggleIncludedTag(tag)}
                         >
                           {tag}
@@ -1491,7 +1607,7 @@ export function App() {
                       <input
                         type="checkbox"
                         checked={room.rules.pool.allAgesOnly}
-                        disabled={!isHost}
+                        disabled={!canEditRules}
                         onChange={(event) =>
                           saveRules({
                             ...room.rules,
@@ -1508,7 +1624,7 @@ export function App() {
                       <input
                         type="checkbox"
                         checked={room.rules.pool.includeOtome}
-                        disabled={!isHost}
+                        disabled={!canEditRules}
                         onChange={(event) =>
                           saveRules({
                             ...room.rules,
@@ -1525,7 +1641,7 @@ export function App() {
                       <input
                         type="checkbox"
                         checked={room.rules.pool.includeChina}
-                        disabled={!isHost}
+                        disabled={!canEditRules}
                         onChange={(event) =>
                           saveRules({
                             ...room.rules,
@@ -1542,7 +1658,7 @@ export function App() {
                       <input
                         type="checkbox"
                         checked={room.rules.pool.includeWest}
-                        disabled={!isHost}
+                        disabled={!canEditRules}
                         onChange={(event) =>
                           saveRules({
                             ...room.rules,
@@ -1558,7 +1674,7 @@ export function App() {
                       <span>标签剧透上限</span>
                       <select
                         value={room.rules.pool.maxTagSpoilerLevel}
-                        disabled={!isHost}
+                        disabled={!canEditRules}
                         onChange={(event) =>
                           saveRules({
                             ...room.rules,
@@ -1579,7 +1695,7 @@ export function App() {
                       <span>每局时间</span>
                       <select
                         value={room.rules.roundTimeSeconds}
-                        disabled={!isHost}
+                        disabled={!canEditRules}
                         onChange={(event) =>
                           saveRules({
                             ...room.rules,
@@ -1597,7 +1713,7 @@ export function App() {
                         <span>赛制</span>
                         <select
                           value={room.rules.bestOf}
-                          disabled={!isHost}
+                          disabled={!canEditRules}
                           onChange={(event) =>
                             saveRules({
                               ...room.rules,
@@ -1619,7 +1735,7 @@ export function App() {
                   <div className="tag-entry">
                     <input
                       value={customTag}
-                      disabled={!isHost}
+                      disabled={!canEditRules}
                       onChange={(event) => setCustomTag(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter") addExcludedTag();
@@ -1627,7 +1743,7 @@ export function App() {
                       placeholder="例如：猎奇"
                     />
                     <button
-                      disabled={!isHost || !customTag.trim()}
+                      disabled={!canEditRules || !customTag.trim()}
                       onClick={addExcludedTag}
                     >
                       排除
@@ -1638,7 +1754,7 @@ export function App() {
                       {room.rules.pool.excludeTags.map((tag) => (
                         <button
                           key={tag}
-                          disabled={!isHost}
+                          disabled={!canEditRules}
                           onClick={() => removeExcludedTag(tag)}
                         >
                           {tag}
