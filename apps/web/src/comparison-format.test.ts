@@ -38,6 +38,30 @@ describe("formatComparisonValue", () => {
       }),
     ).toBe("数据未知");
   });
+
+  it("shows VNDB ratings with two decimal places only", () => {
+    expect(
+      formatComparisonValue({
+        key: "vndbRating",
+        status: "exact",
+        guessValue: 8,
+      }),
+    ).toBe("8.00");
+    expect(
+      formatComparisonValue({
+        key: "vndbRating",
+        status: "partial",
+        guessValue: 7.836,
+      }),
+    ).toBe("7.84");
+    expect(
+      formatComparisonValue({
+        key: "bangumiRating",
+        status: "exact",
+        guessValue: 7.8,
+      }),
+    ).toBe("7.8");
+  });
 });
 
 describe("formatGuessStars", () => {

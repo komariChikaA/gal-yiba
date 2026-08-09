@@ -36,9 +36,11 @@ export function formatComparisonValue(result: ComparisonResult): string {
       ? value.map((item) => enumValueLabels[item] ?? item).join(" · ")
       : "暂无";
   if (typeof value === "number") {
-    return result.key === "vndbVoteCount" || result.key === "bangumiVoteCount"
-      ? value.toLocaleString("zh-CN")
-      : String(value);
+    if (result.key === "vndbVoteCount" || result.key === "bangumiVoteCount") {
+      return value.toLocaleString("zh-CN");
+    }
+    if (result.key === "vndbRating") return value.toFixed(2);
+    return String(value);
   }
   return enumValueLabels[value] ?? value;
 }
