@@ -2,7 +2,7 @@
 
 一个可自定义比较项、以 VNDB 与 Bangumi 为数据来源、支持在线房间对战的 Galgame 猜谜网站。
 
-项目目前处于可联机体验的第一阶段。生产服务器地址与凭据不写入仓库；部署时通过环境变量和反向代理配置域名。产品决策与数据边界见：
+项目目前处于可联机体验的第一阶段。GitHub 项目地址：[komariChikaA/gal-yiba](https://github.com/komariChikaA/gal-yiba)。生产服务器地址与凭据不写入仓库；部署时通过环境变量和反向代理配置域名。产品决策与数据边界见：
 
 - [产品范围](docs/PRODUCT_SPEC.md)
 - [系统架构](docs/ARCHITECTURE.md)
@@ -13,6 +13,7 @@
 ## 已实现
 
 - 单人、1v1 与 2–8 人多人竞技；房间加入、准备、同题同步开局、退出与短时断线重连
+- 首页实时显示在线连接人数和正在对战人数，服务端通过 Socket.IO 主动推送人数变化
 - 开局后直接进入答题界面；1v1 采用左右对称布局，只公开双方星号答题进度，不泄露对手答案
 - 默认每局 5 分钟，房主可选 3/5/10 分钟；答题界面实时倒计时，归零后由服务端自动结算
 - 服务端保存隐藏答案，每名玩家有独立猜测历史，首位猜中者结束竞速
@@ -61,4 +62,4 @@ Windows PowerShell 请先设置 `$env:SERVER_URL`，再运行同一条 `pnpm` �
 
 生产服务器可使用 `docker compose up -d --build`；部署前需按[部署指南](docs/DEPLOYMENT.md)配置数据库密码、域名和 Bangumi User-Agent。
 
-> 本项目公开发布于 `komariChikaA/gal-yiba`。软件许可证仍待确认；当前实现只参考交互和前后端分工，没有复制参考项目的 AGPL 源码。
+> 本项目公开发布于 [komariChikaA/gal-yiba](https://github.com/komariChikaA/gal-yiba)。软件许可证仍待确认；当前实现只参考交互和前后端分工，没有复制参考项目的 AGPL 源码。

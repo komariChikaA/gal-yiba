@@ -3,6 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "description": "A configurable visual-novel guessing game with online rooms.",
+  "homepage": "https://github.com/komariChikaA/gal-yiba#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/komariChikaA/gal-yiba.git"
+  },
+  "bugs": {
+    "url": "https://github.com/komariChikaA/gal-yiba/issues"
+  },
   "packageManager": "pnpm@9.15.1",
   "engines": {
     "node": ">=22"

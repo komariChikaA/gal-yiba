@@ -136,6 +136,7 @@ function socketIdentity(socket: { data: Record<string, unknown> }): {
 async function broadcastRoomState(roomCode: string): Promise<void> {
   const room = rooms.get(roomCode);
   io.to(roomCode).emit("room:updated", room);
+  broadcastRealtimeStats();
   if (!room.round) return;
   if (room.phase === "active") {
     scheduleRoomExpiry(room.code, room.round.deadlineAt);
@@ -154,6 +155,18 @@ async function broadcastRoomState(roomCode: string): Promise<void> {
       // Ignore sockets that have not completed room authentication.
     }
   }
+}
+
+function realtimeStats() {
+  return {
+    onlinePlayers: io.of("/").sockets.size,
+    ...rooms.activityStats(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+function broadcastRealtimeStats(): void {
+  io.emit("presence:updated", realtimeStats());
 }
 
 async function persistMatchIfFinished(roomCode: string): Promise<void> {
@@ -194,6 +207,11 @@ app.get("/api/health", (_request, response) => {
     service: "gal-yiba-server",
     now: new Date().toISOString(),
   });
+});
+
+app.get("/api/stats/realtime", (_request, response) => {
+  response.setHeader("Cache-Control", "no-store");
+  response.json(realtimeStats());
 });
 
 app.get("/api/rules/options", (_request, response) => {
@@ -438,6 +456,8 @@ if (process.env.NODE_ENV === "production") {
 }
 
 io.on("connection", (socket) => {
+  broadcastRealtimeStats();
+
   socket.on("room:create", async (payload: unknown, acknowledge) => {
     try {
       const input = createRoomSchema.parse(payload);
@@ -473,6 +493,7 @@ io.on("connection", (socket) => {
       } else {
         matchRecorder.forget(identity.roomCode);
       }
+      broadcastRealtimeStats();
       acknowledge({ ok: true });
     } catch (error) {
       acknowledge({
@@ -579,6 +600,7 @@ io.on("connection", (socket) => {
       bindSocketSession(socket, result.room.code, result.session.playerId);
       acknowledge({ ok: true, ...result });
       io.to(result.room.code).emit("room:updated", result.room);
+      broadcastRealtimeStats();
     } catch (error) {
       acknowledge({
         ok: false,
@@ -696,6 +718,7 @@ io.on("connection", (socket) => {
     } catch {
       // The socket may disconnect before it has joined a room.
     }
+    setTimeout(broadcastRealtimeStats, 0).unref();
   });
 });
 

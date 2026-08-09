@@ -97,6 +97,27 @@ button {
   background: #72d39c;
   box-shadow: 0 0 0 4px #72d39c20;
 }
+.live-stats {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid #3b3530;
+  border-radius: 999px;
+  color: #938b82;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.live-stats b {
+  color: #ff7442;
+  font-size: 15px;
+}
+.live-stats small {
+  margin-left: 4px;
+  color: inherit;
+  font-size: 10px;
+}
 
 .hero {
   max-width: 1420px;
@@ -1088,6 +1109,11 @@ footer {
 footer b {
   color: #d8cfc5;
 }
+footer a {
+  color: inherit;
+  font-weight: 800;
+  text-underline-offset: 3px;
+}
 
 /* Warm anime theme ------------------------------------------------------- */
 :root {
@@ -1277,6 +1303,16 @@ body {
 .connection.online::before {
   background: var(--success);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 22%, transparent);
+}
+.live-stats {
+  border-color: var(--line-strong);
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-solid) 72%, transparent);
+}
+.live-stats b,
+footer a,
+.github-link {
+  color: var(--coral-strong);
 }
 
 .hero {
@@ -1684,6 +1720,10 @@ footer b {
   .site-header nav a {
     display: none;
   }
+  .site-header nav a.github-link {
+    display: inline;
+    font-size: 12px;
+  }
   .hero {
     grid-template-columns: 1fr;
     padding: 48px 22px 70px;
@@ -1720,8 +1760,25 @@ footer b {
 }
 
 @media (max-width: 560px) {
+  .site-header {
+    height: auto;
+    min-height: 112px;
+    padding: 12px 14px;
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 8px;
+  }
+  .site-header nav {
+    width: 100%;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
   .connection {
     font-size: 0;
+  }
+  .live-stats small {
+    display: none;
   }
   .hero {
     min-height: auto;
@@ -2208,12 +2265,11 @@ footer b {
   animation: star-twinkle 7s ease-in-out infinite alternate;
 }
 .app-shell[data-theme="night"]::after {
-  background-image:
-    radial-gradient(
-      ellipse 30% 18% at 82% 10%,
-      rgba(234, 243, 255, 0.22) 0%,
-      transparent 70%
-    );
+  background-image: radial-gradient(
+    ellipse 30% 18% at 82% 10%,
+    rgba(234, 243, 255, 0.22) 0%,
+    transparent 70%
+  );
   animation: moon-breathe 9s ease-in-out infinite;
 }
 

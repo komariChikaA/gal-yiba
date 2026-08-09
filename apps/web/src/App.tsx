@@ -230,6 +230,13 @@ interface LeaderboardEntry {
   matches: number;
 }
 
+interface RealtimeStats {
+  onlinePlayers: number;
+  battlingPlayers: number;
+  activeRooms: number;
+  updatedAt: string;
+}
+
 interface MappingSuggestion {
   canonicalId: string;
   canonicalTitle: string;
@@ -254,6 +261,9 @@ export function App() {
       : "day";
   });
   const [connected, setConnected] = useState(socket.connected);
+  const [realtimeStats, setRealtimeStats] = useState<RealtimeStats | null>(
+    null,
+  );
   const [featureCode, setFeatureCode] = useState(() => loadFeatureCode());
   const [playerId, setPlayerId] = useState(() =>
     resolvePlayerId(loadFeatureCode()),
@@ -388,6 +398,17 @@ export function App() {
       )
       .then((body) => setFameCounts(body.counts))
       .catch(() => setFameCounts(null));
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/stats/realtime", { signal: controller.signal })
+      .then((response) => response.json() as Promise<RealtimeStats>)
+      .then(setRealtimeStats)
+      .catch((requestError: Error) => {
+        if (requestError.name !== "AbortError") setRealtimeStats(null);
+      });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -549,10 +570,13 @@ export function App() {
       }
     };
     const onGameState = (nextGame: PublicGameSession) => setGame(nextGame);
+    const onRealtimeStats = (nextStats: RealtimeStats) =>
+      setRealtimeStats(nextStats);
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
     socket.on("room:updated", onRoomUpdated);
     socket.on("game:state", onGameState);
+    socket.on("presence:updated", onRealtimeStats);
 
     socket.on("room:chat", (message: ChatMessage) =>
       setChatMessages((current) => [...current, message].slice(-100)),
@@ -563,6 +587,7 @@ export function App() {
       socket.off("disconnect", onDisconnect);
       socket.off("room:updated", onRoomUpdated);
       socket.off("game:state", onGameState);
+      socket.off("presence:updated", onRealtimeStats);
     };
   }, []);
 
@@ -1053,6 +1078,14 @@ export function App() {
         <nav>
           <a href="#modes">玩法</a>
           <a href="#data">数据</a>
+          <a
+            className="github-link"
+            href="https://github.com/komariChikaA/gal-yiba"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub ↗
+          </a>
           <button
             className="nav-link"
             type="button"
@@ -1079,6 +1112,14 @@ export function App() {
           </button>
           <span className={`connection ${connected ? "online" : "offline"}`}>
             {connected ? "联机服务已连接" : "正在重连"}
+          </span>
+          <span
+            className="live-stats"
+            title={`活跃房间 ${realtimeStats?.activeRooms ?? 0} 个`}
+            aria-live="polite"
+          >
+            <b>{realtimeStats?.battlingPlayers ?? "—"}</b> 人对战中
+            <small>在线 {realtimeStats?.onlinePlayers ?? "—"}</small>
           </span>
         </nav>
       </header>
@@ -1953,7 +1994,16 @@ export function App() {
 
       <footer>
         <b>旮一把</b>
-        <span>第一阶段原型 · 数据与规则均可追踪</span>
+        <span>
+          第一阶段原型 · 数据与规则均可追踪 ·{" "}
+          <a
+            href="https://github.com/komariChikaA/gal-yiba"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub 项目源码 ↗
+          </a>
+        </span>
       </footer>
 
       {showLeaderboard && (
