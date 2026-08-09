@@ -9,10 +9,11 @@ import type {
 
 /** 各知名度的题池规模（按分数榜排名，累积 Top-N）。 */
 export const fameTierPoolSizes: Record<FameTier, number> = {
-  novice: 150,
-  standard: 300,
-  veteran: 690,
-  master: 1028,
+  novice: 100,
+  standard: 250,
+  veteran: 500,
+  experienced: 750,
+  master: 1024,
 };
 
 /** 综合分：评分优先（×10⁹），票数只做同分排序。 */

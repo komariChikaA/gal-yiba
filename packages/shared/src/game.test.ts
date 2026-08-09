@@ -110,32 +110,39 @@ describe("filterAnswerPool", () => {
         ...rules,
         pool: { ...rules.pool, fameTier },
       }).map((item) => item.id);
-    // 目录小于 150 部时，每个档位都包含全部作品。
+    // 目录小于 100 部时，每个档位都包含全部作品。
     expect(idsFor("novice")).toEqual(["top", "mid", "low"]);
     expect(idsFor("standard")).toEqual(["top", "mid", "low"]);
     expect(idsFor("veteran")).toEqual(["top", "mid", "low"]);
+    expect(idsFor("experienced")).toEqual(["top", "mid", "low"]);
     expect(idsFor("master")).toEqual(["top", "mid", "low"]);
   });
 
   it("cuts each tier at its pool size by score", () => {
-    const catalog = Array.from({ length: 160 }, (_, index) =>
+    const catalog = Array.from({ length: 1_100 }, (_, index) =>
       visualNovel(`v-${index}`, {
-        vndbRating: index < 150 ? 8 : 5,
-        vndbVoteCount: 100,
+        vndbRating: 10 - index / 10_000,
+        vndbVoteCount: 1_100 - index,
       }),
     );
-    const novice = filterAnswerPool(catalog, {
-      ...rules,
-      pool: { ...rules.pool, fameTier: "novice" },
+    expect(fameTierPoolSizes).toEqual({
+      novice: 100,
+      standard: 250,
+      veteran: 500,
+      experienced: 750,
+      master: 1_024,
     });
-    expect(novice).toHaveLength(150);
-    const veteran = filterAnswerPool(catalog, {
-      ...rules,
-      pool: { ...rules.pool, fameTier: "veteran" },
-    });
-    expect(veteran).toHaveLength(160);
-    // 老资历档在前 150 名之外再容纳 338 部。
-    expect(fameTierPoolSizes.master).toBe(1028);
+    for (const [fameTier, expected] of Object.entries(fameTierPoolSizes)) {
+      expect(
+        filterAnswerPool(catalog, {
+          ...rules,
+          pool: {
+            ...rules.pool,
+            fameTier: fameTier as GameRules["pool"]["fameTier"],
+          },
+        }),
+      ).toHaveLength(expected);
+    }
   });
 
   it("filters and compares tags at the configured spoiler level", () => {
@@ -312,12 +319,12 @@ describe("daily question session", () => {
   it("only uses answers inside the filtered pool", () => {
     const catalog = Array.from({ length: 160 }, (_, index) =>
       visualNovel(`v-${index}`, {
-        vndbRating: index < 150 ? 8 : 5,
+        vndbRating: index < 100 ? 8 : 5,
         vndbVoteCount: 100,
       }),
     );
     const session = createDailyGameSession(catalog, rules, "2026-08-08");
-    expect(Number(session.answer.id.split("-")[1])).toBeLessThan(150);
+    expect(Number(session.answer.id.split("-")[1])).toBeLessThan(100);
   });
 
   it("rotates the answer across dates", () => {

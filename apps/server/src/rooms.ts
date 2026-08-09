@@ -142,7 +142,7 @@ export const defaultRules: GameRules = {
     includeChina: false,
     includeWest: false,
     maxTagSpoilerLevel: 0,
-    fameTier: "standard",
+    fameTier: "veteran",
   },
 };
 
@@ -209,7 +209,7 @@ export class RoomRegistry {
   create(
     nickname: string,
     mode: GameMode = "race",
-    fameTier: FameTier = "standard",
+    fameTier: FameTier = "veteran",
     playerIdInput?: string,
     featureCodeInput?: string,
   ): { room: RoomSnapshot; session: PlayerSession } {

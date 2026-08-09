@@ -30,7 +30,7 @@ function visualNovel(id: string): VisualNovel {
 describe("RoomRegistry", () => {
   it("creates a five-character room and lets another player join case-insensitively", () => {
     const registry = new RoomRegistry();
-    const created = registry.create("房主", "race", "standard");
+    const created = registry.create("房主", "race");
     const joined = registry.join(created.room.code.toLowerCase(), "玩家二");
     expect(created.room.code).toMatch(/^[A-Z2-9]{5}$/);
     expect(joined.room.players.map((player) => player.nickname)).toEqual([
@@ -52,6 +52,7 @@ describe("RoomRegistry", () => {
       "tags",
     ]);
     expect(created.room.rules.roundTimeSeconds).toBe(300);
+    expect(created.room.rules.pool.fameTier).toBe("veteran");
     expect(created.room.rules.pool.includeOtome).toBe(false);
   });
 
