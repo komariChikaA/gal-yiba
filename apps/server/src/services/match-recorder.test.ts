@@ -15,6 +15,7 @@ function report(overrides: Partial<MatchReport> = {}): MatchReport {
       maxGuesses: 8,
       roundTimeSeconds: 300,
       bestOf: 1,
+      replayTiedRounds: true,
       comparisonKeys: ["developer", "releaseYear"],
       pool: {
         includeTags: [],
@@ -32,6 +33,7 @@ function report(overrides: Partial<MatchReport> = {}): MatchReport {
     startedAt: "2026-08-08T00:00:00.000Z",
     finishedAt: "2026-08-08T00:05:00.000Z",
     winnerPlayerId: "11111111-1111-4111-8111-111111111111",
+    rankedMatch: null,
     players: [
       {
         playerId: "11111111-1111-4111-8111-111111111111",
@@ -197,5 +199,91 @@ describe("MatchRecorder", () => {
         feature_code: null,
       },
     ]);
+  });
+
+  it("awards the revised +20 novice BO1 reward and floors losses at zero", async () => {
+    const recorder = new MatchRecorder(pool);
+    await recorder.record(
+      report({ rankedMatch: { fameTier: "novice", bestOf: 1 } }),
+    );
+    const players = await pool.query(
+      `SELECT nickname, ranked_pt, ranked_wins, ranked_matches
+       FROM players ORDER BY ranked_pt DESC`,
+    );
+    expect(players.rows).toEqual([
+      {
+        nickname: "房主",
+        ranked_pt: 20,
+        ranked_wins: 1,
+        ranked_matches: 1,
+      },
+      {
+        nickname: "对手",
+        ranked_pt: 0,
+        ranked_wins: 0,
+        ranked_matches: 1,
+      },
+    ]);
+    const changes = await pool.query(
+      "SELECT nickname, pt_delta, pt_after FROM match_players ORDER BY pt_after DESC",
+    );
+    expect(changes.rows).toEqual([
+      { nickname: "房主", pt_delta: 20, pt_after: 20 },
+      { nickname: "对手", pt_delta: 0, pt_after: 0 },
+    ]);
+  });
+
+  it("applies BO3 PT, supports ranked rematches, and builds a PT leaderboard", async () => {
+    const recorder = new MatchRecorder(pool);
+    const winner = "11111111-1111-4111-8111-111111111111";
+    const loser = "22222222-2222-4222-8222-222222222222";
+    await pool.query(
+      `INSERT INTO players (player_id, nickname, ranked_pt)
+       VALUES ($1, '房主', 100), ($2, '对手', 100)`,
+      [winner, loser],
+    );
+    await recorder.record(
+      report({
+        rankedMatch: { fameTier: "veteran", bestOf: 3 },
+        rules: { ...report().rules, bestOf: 3 },
+      }),
+    );
+    recorder.forget("ABCDE");
+    await recorder.record(
+      report({
+        roomCode: "ABCDE",
+        startedAt: "2026-08-09T00:00:00.000Z",
+        finishedAt: "2026-08-09T00:05:00.000Z",
+        winnerPlayerId: loser,
+        rankedMatch: { fameTier: "veteran", bestOf: 3 },
+        rules: { ...report().rules, bestOf: 3 },
+        players: [
+          {
+            playerId: winner,
+            nickname: "房主",
+            wins: 0,
+            featureCode: "MYCODE",
+          },
+          { playerId: loser, nickname: "对手", wins: 2, featureCode: null },
+        ],
+      }),
+    );
+
+    const leaderboard = await recorder.rankedLeaderboard(10);
+    expect(leaderboard).toHaveLength(2);
+    expect(leaderboard[0]).toMatchObject({
+      playerId: loser,
+      wins: 1,
+      matches: 2,
+      pt: 119,
+      rank: { label: "初心★2" },
+    });
+    expect(leaderboard[1]).toMatchObject({
+      playerId: winner,
+      wins: 1,
+      matches: 2,
+      pt: 117,
+      rank: { label: "初心★2" },
+    });
   });
 });

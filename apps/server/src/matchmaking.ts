@@ -1,9 +1,10 @@
-import type { FameTier } from "@gal-yiba/shared";
+import type { RankedBestOf, RankedFameTier } from "@gal-yiba/shared";
 
 export interface MatchmakingEntry {
   socketId: string;
   nickname: string;
-  fameTier: FameTier;
+  fameTier: RankedFameTier;
+  bestOf: RankedBestOf;
   playerId?: string;
   featureCode?: string;
   joinedAt: number;
@@ -22,6 +23,7 @@ export class MatchmakingPool {
     const opponent = [...this.waiting.values()].find(
       (candidate) =>
         candidate.fameTier === entry.fameTier &&
+        candidate.bestOf === entry.bestOf &&
         (!candidate.playerId ||
           !entry.playerId ||
           candidate.playerId !== entry.playerId),
@@ -42,7 +44,9 @@ export class MatchmakingPool {
     const entry = this.waiting.get(socketId);
     if (!entry) return null;
     const sameTier = [...this.waiting.values()].filter(
-      (candidate) => candidate.fameTier === entry.fameTier,
+      (candidate) =>
+        candidate.fameTier === entry.fameTier &&
+        candidate.bestOf === entry.bestOf,
     );
     const index = sameTier.findIndex(
       (candidate) => candidate.socketId === socketId,
@@ -54,15 +58,22 @@ export class MatchmakingPool {
     return [...this.waiting.values()];
   }
 
-  stats(): { total: number; byFameTier: Record<FameTier, number> } {
-    const byFameTier: Record<FameTier, number> = {
+  stats(): {
+    total: number;
+    byFameTier: Record<RankedFameTier, number>;
+    byQueue: Record<string, number>;
+  } {
+    const byFameTier: Record<RankedFameTier, number> = {
       novice: 0,
       standard: 0,
       veteran: 0,
-      experienced: 0,
-      master: 0,
     };
-    for (const entry of this.waiting.values()) byFameTier[entry.fameTier] += 1;
-    return { total: this.waiting.size, byFameTier };
+    const byQueue: Record<string, number> = {};
+    for (const entry of this.waiting.values()) {
+      byFameTier[entry.fameTier] += 1;
+      const queueKey = `${entry.fameTier}:bo${entry.bestOf}`;
+      byQueue[queueKey] = (byQueue[queueKey] ?? 0) + 1;
+    }
+    return { total: this.waiting.size, byFameTier, byQueue };
   }
 }

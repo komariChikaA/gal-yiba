@@ -10,6 +10,8 @@ import {
   type GameMode,
   type GameSession,
   type PublicGameSession,
+  type RankedBestOf,
+  type RankedFameTier,
   type VisualNovel,
 } from "@gal-yiba/shared";
 
@@ -20,6 +22,18 @@ export interface RoomPlayer {
   nickname: string;
   ready: boolean;
   connected: boolean;
+  rankLabel: string | null;
+}
+
+export interface RankedMatchConfig {
+  fameTier: RankedFameTier;
+  bestOf: RankedBestOf;
+}
+
+export interface CreateRoomOptions {
+  rulesLocked?: boolean;
+  rankedMatch?: RankedMatchConfig;
+  hostRankLabel?: string | null;
 }
 
 export interface RoomSnapshot {
@@ -29,6 +43,8 @@ export interface RoomSnapshot {
   players: RoomPlayer[];
   rules: GameRules;
   rulesLocked: boolean;
+  rankedMatch: RankedMatchConfig | null;
+  rematchVotes: string[];
   round: RoomRoundSnapshot | null;
   winnerPlayerId: string | null;
   matchWinnerPlayerId: string | null;
@@ -62,6 +78,7 @@ export interface RoomRoundSnapshot {
 
 interface MutableRound {
   roundNumber: number;
+  sequenceNumber: number;
   answer: VisualNovel;
   playerGames: Map<string, GameSession>;
 }
@@ -84,7 +101,7 @@ export interface ChatMessage {
 
 interface MutableRoom extends Omit<
   RoomSnapshot,
-  "players" | "round" | "scores"
+  "players" | "round" | "scores" | "rematchVotes"
 > {
   players: Map<string, RoomPlayer>;
   round: MutableRound | null;
@@ -93,6 +110,7 @@ interface MutableRoom extends Omit<
   roundHistory: MutableRoundRecord[];
   chat: ChatMessage[];
   featureCodes: Map<string, string | null>;
+  rematchVotes: Set<string>;
 }
 export interface MatchRoundReport {
   roundNumber: number;
@@ -118,6 +136,7 @@ export interface MatchReport {
   startedAt: string;
   finishedAt: string;
   winnerPlayerId: string | null;
+  rankedMatch: RankedMatchConfig | null;
   players: MatchPlayerReport[];
   rounds: MatchRoundReport[];
 }
@@ -133,6 +152,7 @@ export const defaultRules: GameRules = {
   maxGuesses: 8,
   roundTimeSeconds: 300,
   bestOf: 1,
+  replayTiedRounds: false,
   comparisonKeys: [...defaultComparisonKeys],
   pool: {
     includeTags: [],
@@ -168,6 +188,8 @@ function snapshot(room: MutableRoom): RoomSnapshot {
     players: Array.from(room.players.values(), (player) => ({ ...player })),
     rules: cloneRules(room.rules),
     rulesLocked: room.rulesLocked,
+    rankedMatch: room.rankedMatch ? { ...room.rankedMatch } : null,
+    rematchVotes: [...room.rematchVotes],
     round: room.round
       ? {
           roundNumber: room.round.roundNumber,
@@ -234,7 +256,7 @@ export class RoomRegistry {
     fameTier: FameTier = "veteran",
     playerIdInput?: string,
     featureCodeInput?: string,
-    rulesLocked = false,
+    options: CreateRoomOptions = {},
   ): { room: RoomSnapshot; session: PlayerSession } {
     let code = createRoomCode();
     while (this.rooms.has(code)) code = createRoomCode();
@@ -246,6 +268,7 @@ export class RoomRegistry {
       nickname,
       ready: false,
       connected: true,
+      rankLabel: options.hostRankLabel ?? null,
     };
     const room: MutableRoom = {
       code,
@@ -255,9 +278,13 @@ export class RoomRegistry {
       rules: {
         ...cloneRules(defaultRules),
         mode,
+        bestOf: options.rankedMatch?.bestOf ?? 1,
+        replayTiedRounds: mode === "duel",
         pool: { ...cloneRules(defaultRules).pool, fameTier },
       },
-      rulesLocked,
+      rulesLocked: options.rulesLocked ?? false,
+      rankedMatch: options.rankedMatch ? { ...options.rankedMatch } : null,
+      rematchVotes: new Set(),
       round: null,
       winnerPlayerId: null,
       matchWinnerPlayerId: null,
@@ -279,6 +306,7 @@ export class RoomRegistry {
     nickname: string,
     playerIdInput?: string,
     featureCodeInput?: string,
+    rankLabelInput?: string | null,
   ): { room: RoomSnapshot; session: PlayerSession } {
     const code = codeInput.trim().toUpperCase();
     const room = this.requireRoom(code);
@@ -296,6 +324,7 @@ export class RoomRegistry {
       nickname,
       ready: false,
       connected: true,
+      rankLabel: rankLabelInput ?? null,
     });
     room.scores.set(playerId, 0);
     room.featureCodes.set(playerId, featureCodeInput?.trim() || null);
@@ -425,13 +454,21 @@ export class RoomRegistry {
       });
       player.ready = false;
     }
+    const sequenceNumber = room.roundHistory.length + 1;
+    const decidedRounds = [...room.scores.values()].reduce(
+      (total, wins) => total + wins,
+      0,
+    );
     room.round = {
-      roundNumber: (room.round?.roundNumber ?? 0) + 1,
+      roundNumber: room.rules.replayTiedRounds
+        ? decidedRounds + 1
+        : sequenceNumber,
+      sequenceNumber,
       answer: structuredClone(baseGame.answer),
       playerGames,
     };
     room.roundHistory.push({
-      roundNumber: room.round.roundNumber,
+      roundNumber: sequenceNumber,
       answer: structuredClone(room.round.answer),
       startedAt: baseGame.startedAt,
       finishedAt: null,
@@ -477,23 +514,33 @@ export class RoomRegistry {
     if (winnerId) {
       room.scores.set(winnerId, (room.scores.get(winnerId) ?? 0) + 1);
     }
-    const bestOfActive = room.rules.mode !== "solo" && room.rules.bestOf > 1;
+    const competitive = room.rules.mode !== "solo";
     const target = Math.ceil(room.rules.bestOf / 2);
     const matchWinner =
-      bestOfActive &&
+      competitive &&
       winnerId !== null &&
       (room.scores.get(winnerId) ?? 0) >= target
         ? winnerId
         : null;
-    const roundsPlayed = room.round?.roundNumber ?? 0;
-    if (
-      !bestOfActive ||
-      options.forfeit ||
-      matchWinner ||
-      roundsPlayed >= room.rules.bestOf
-    ) {
+    if (!competitive || options.forfeit || matchWinner) {
       room.phase = "finished";
-      room.matchWinnerPlayerId = winnerId;
+      room.matchWinnerPlayerId = options.forfeit ? winnerId : matchWinner;
+      room.intermissionDeadlineAt = null;
+      return;
+    }
+    if (
+      !room.rules.replayTiedRounds &&
+      room.roundHistory.length >= room.rules.bestOf
+    ) {
+      const sortedScores = [...room.scores].sort(
+        (left, right) => right[1] - left[1],
+      );
+      room.phase = "finished";
+      room.matchWinnerPlayerId =
+        sortedScores.length > 0 &&
+        sortedScores[0]![1] > (sortedScores[1]?.[1] ?? -1)
+          ? sortedScores[0]![0]
+          : null;
       room.intermissionDeadlineAt = null;
       return;
     }
@@ -503,19 +550,56 @@ export class RoomRegistry {
   rematch(code: string, playerId: string): RoomSnapshot {
     const room = this.requireRoom(code);
     if (room.phase !== "finished") throw new Error("ROOM_NOT_FINISHED");
-    if (room.hostPlayerId !== playerId) throw new Error("HOST_ONLY");
+    if (!room.players.has(playerId)) throw new Error("PLAYER_NOT_FOUND");
+    if (room.rankedMatch) {
+      room.rematchVotes.add(playerId);
+      const connectedPlayerIds = [...room.players.values()]
+        .filter((player) => player.connected)
+        .map((player) => player.id);
+      if (
+        connectedPlayerIds.length < 2 ||
+        !connectedPlayerIds.every((id) => room.rematchVotes.has(id))
+      ) {
+        room.revision += 1;
+        return snapshot(room);
+      }
+    } else if (room.hostPlayerId !== playerId) {
+      throw new Error("HOST_ONLY");
+    }
+    this.resetForRematch(room);
+    return snapshot(room);
+  }
+
+  updateRankLabels(
+    code: string,
+    labels: ReadonlyMap<string, string>,
+  ): RoomSnapshot {
+    const room = this.requireRoom(code);
+    let changed = false;
+    for (const [playerId, rankLabel] of labels) {
+      const player = room.players.get(playerId);
+      if (player && player.rankLabel !== rankLabel) {
+        player.rankLabel = rankLabel;
+        changed = true;
+      }
+    }
+    if (changed) room.revision += 1;
+    return snapshot(room);
+  }
+
+  private resetForRematch(room: MutableRoom): void {
     room.phase = "lobby";
     room.round = null;
     room.roundHistory = [];
     room.winnerPlayerId = null;
     room.matchWinnerPlayerId = null;
     room.intermissionDeadlineAt = null;
+    room.rematchVotes.clear();
     for (const player of room.players.values()) player.ready = false;
     for (const playerIdKey of room.scores.keys()) {
       room.scores.set(playerIdKey, 0);
     }
     room.revision += 1;
-    return snapshot(room);
   }
 
   submitPlayerGuess(
@@ -594,7 +678,8 @@ export class RoomRegistry {
       status: "finished",
       startedAt: firstRound?.startedAt ?? "",
       finishedAt: lastRound?.finishedAt ?? new Date().toISOString(),
-      winnerPlayerId: room.winnerPlayerId,
+      winnerPlayerId: room.matchWinnerPlayerId,
+      rankedMatch: room.rankedMatch ? { ...room.rankedMatch } : null,
       players: [...room.players].map(([playerId, player]) => ({
         playerId,
         nickname: player.nickname,
@@ -719,6 +804,7 @@ export class RoomRegistry {
     room.players.delete(playerId);
     room.scores.delete(playerId);
     room.featureCodes.delete(playerId);
+    room.rematchVotes.delete(playerId);
     room.round?.playerGames.delete(playerId);
     for (const [token, identity] of this.reconnectTokens) {
       if (identity.roomCode === room.code && identity.playerId === playerId) {

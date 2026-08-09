@@ -116,6 +116,8 @@ export interface GameRules {
   maxGuesses: number;
   roundTimeSeconds: number;
   bestOf: 1 | 3 | 5 | 7;
+  /** 平局是否重赛；开启时平局不消耗 BO 的有效局数。 */
+  replayTiedRounds: boolean;
   comparisonKeys: ComparisonKey[];
   pool: PoolFilter;
 }

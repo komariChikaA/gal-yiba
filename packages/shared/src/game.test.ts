@@ -16,6 +16,7 @@ const rules: GameRules = {
   maxGuesses: 2,
   roundTimeSeconds: 60,
   bestOf: 1,
+  replayTiedRounds: false,
   comparisonKeys: ["developer", "releaseYear", "tags"],
   pool: {
     includeTags: ["悬疑"],
