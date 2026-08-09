@@ -183,11 +183,11 @@ describe("CatalogRepository", () => {
       seriesIds: ["v17", "v13"],
       platforms: ["win", "and", "ios", "web", "ps4", "ps5", "swi"],
       tags: [
-        { id: "g1", name: "Mystery", spoilerLevel: 0, score: 2.8 },
-        { id: "g2", name: "Drama", spoilerLevel: 0, score: 2.5 },
-        { id: "g3", name: "Science Fiction", spoilerLevel: 0, score: 2.2 },
-        { id: "g4", name: "Romance", spoilerLevel: 0, score: 1.9 },
-        { id: "g5", name: "True Ending Twist", spoilerLevel: 2, score: 3 },
+        { id: "g19", name: "Mystery", spoilerLevel: 0, score: 2.8 },
+        { id: "g147", name: "Drama", spoilerLevel: 0, score: 2.5 },
+        { id: "g105", name: "Science Fiction", spoilerLevel: 0, score: 2.2 },
+        { id: "g96", name: "Romance", spoilerLevel: 0, score: 1.9 },
+        { id: "g9999", name: "True Ending Twist", spoilerLevel: 2, score: 3 },
       ],
     });
     await repository.upsertSourceRecord(vndb);
@@ -211,13 +211,13 @@ describe("CatalogRepository", () => {
       bangumiVoteCount: null,
       ageRating: "all_ages",
       platforms: ["PC", "PlayStation", "Nintendo Switch"],
-      tags: ["Mystery", "Drama", "Science Fiction"],
+      tags: ["悬疑", "剧情", "科幻"],
       tagDetails: [
-        { name: "True Ending Twist", spoilerLevel: 2, score: 3 },
-        { name: "Mystery", spoilerLevel: 0, score: 2.8 },
-        { name: "Drama", spoilerLevel: 0, score: 2.5 },
-        { name: "Science Fiction", spoilerLevel: 0, score: 2.2 },
-        { name: "Romance", spoilerLevel: 0, score: 1.9 },
+        { id: "g9999", name: "True Ending Twist", spoilerLevel: 2, score: 3 },
+        { id: "g19", name: "Mystery", spoilerLevel: 0, score: 2.8 },
+        { id: "g147", name: "Drama", spoilerLevel: 0, score: 2.5 },
+        { id: "g105", name: "Science Fiction", spoilerLevel: 0, score: 2.2 },
+        { id: "g96", name: "Romance", spoilerLevel: 0, score: 1.9 },
       ],
     });
   });

@@ -28,7 +28,7 @@ const hairColorOrder = new Map(
 );
 
 const visualNovelFields =
-  "id,title,alttitle,aliases,titles{title,lang,main},released,developers{id,name},staff{id,name,role},relations{id,relation,relation_official},length,languages,platforms,rating,votecount,popularity,tags{id,name,rating,spoiler,category}";
+  "id,title,alttitle,aliases,titles{title,lang,main},released,developers{id,name},staff{id,name,original,lang,role},relations{id,relation,relation_official},length,languages,platforms,rating,votecount,popularity,tags{id,name,rating,spoiler,category}";
 
 export type VndbVisualNovelSort = "id" | "released" | "rating" | "votecount";
 
@@ -59,7 +59,13 @@ interface VndbVisualNovel {
   titles: VndbTitle[];
   released: string | null;
   developers: Array<{ id: string; name: string }>;
-  staff: Array<{ id: string; name: string; role: string }>;
+  staff: Array<{
+    id: string;
+    name: string;
+    original: string | null;
+    lang: string;
+    role: string;
+  }>;
   relations: Array<{
     id: string;
     relation: string;
@@ -142,6 +148,14 @@ interface HeroineHairEvidence {
     name: string;
     colors: SourceHeroineHairColor[];
   }>;
+}
+
+function displayStaffName(staff: VndbVisualNovel["staff"][number]): string {
+  const preferred = staff.original?.trim() || staff.name.trim();
+  return staff.lang === "ja" &&
+    /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(preferred)
+    ? preferred.replace(/\s+/g, "")
+    : preferred;
 }
 
 interface ReleaseEvidence {
@@ -546,7 +560,8 @@ export class VndbClient {
       publisherIds: releaseEvidence?.publisherIds ?? [],
       scenarioWriters: item.staff
         .filter((staff) => staff.role === "scenario")
-        .map((staff) => staff.name),
+        .map(displayStaffName)
+        .filter(Boolean),
       playtime:
         item.length != null && [1, 2, 3, 4, 5].includes(item.length)
           ? (item.length as 1 | 2 | 3 | 4 | 5)

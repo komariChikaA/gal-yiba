@@ -364,6 +364,7 @@ export class CatalogRepository {
       const existing = tagDetailsByName.get(key);
       if (existing && (existing.score ?? 0) > (tag.score ?? 0)) continue;
       const detail: VisualNovelTag = {
+        ...(tag.id ? { id: tag.id } : {}),
         name: tag.name,
         spoilerLevel: tag.spoilerLevel ?? 0,
       };

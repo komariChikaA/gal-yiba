@@ -25,7 +25,15 @@ describe("VndbClient", () => {
               titles: [{ title: "Ever17", lang: "ja", main: true }],
               released: "2002-08-29",
               developers: [{ id: "p1", name: "KID" }],
-              staff: [{ id: "s1", name: "Writer", role: "scenario" }],
+              staff: [
+                {
+                  id: "s1",
+                  name: "Maeda Jun",
+                  original: "麻枝 准",
+                  lang: "ja",
+                  role: "scenario",
+                },
+              ],
               relations: [
                 {
                   id: "v13",
@@ -145,6 +153,7 @@ describe("VndbClient", () => {
     expect(page.items[0]?.rating).toBe(8.2);
     expect(page.items[0]?.sourceId).toBe("v17");
     expect(page.items[0]?.developers).toEqual(["KID"]);
+    expect(page.items[0]?.scenarioWriters).toEqual(["麻枝准"]);
     expect(page.items[0]?.alternativeTitles).toContain("Ever 17 alias");
     expect(page.items[0]?.releaseDate).toBe("2002-08-29");
     expect(page.items[0]?.publisherIds).toEqual(["p2"]);
@@ -160,6 +169,9 @@ describe("VndbClient", () => {
     expect(fetcher.mock.calls[2]?.[1]?.body).toContain('"has_anime"');
     expect(fetcher.mock.calls[3]?.[0]).toContain("/character");
     expect(fetcher.mock.calls[3]?.[1]?.body).toContain('"primary"');
+    expect(fetcher.mock.calls[0]?.[1]?.body).toContain(
+      "staff{id,name,original,lang,role}",
+    );
     expect(
       (page.items[0]?.raw as { heroineHairEvidence: unknown[] })
         .heroineHairEvidence,

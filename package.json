@@ -18,6 +18,7 @@
     "mappings:list": "pnpm --filter @gal-yiba/server mappings:list",
     "mappings:approve": "pnpm --filter @gal-yiba/server mappings:approve",
     "mappings:reject": "pnpm --filter @gal-yiba/server mappings:reject",
+    "audit:tags": "pnpm --filter @gal-yiba/shared build && node scripts/audit-tag-normalization.mjs",
     "test": "pnpm -r test",
     "typecheck": "pnpm --filter @gal-yiba/shared build && pnpm --filter @gal-yiba/data build && pnpm -r typecheck",
     "format": "prettier --write .",

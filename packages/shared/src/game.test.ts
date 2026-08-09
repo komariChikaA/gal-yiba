@@ -125,22 +125,19 @@ describe("filterAnswerPool", () => {
         { name: "真结局反转", spoilerLevel: 2 },
       ],
     });
-    expect(filterAnswerPool([tagged], rules)[0]?.tags).toEqual([
-      "悬疑",
-      "成人内容",
-    ]);
+    expect(filterAnswerPool([tagged], rules)[0]?.tags).toEqual(["悬疑"]);
     expect(
       filterAnswerPool([tagged], {
         ...rules,
         pool: { ...rules.pool, maxTagSpoilerLevel: 2 },
       })[0]?.tags,
-    ).toEqual(["悬疑", "成人内容", "真结局反转"]);
+    ).toEqual(["悬疑"]);
     expect(
       filterAnswerPool([tagged], {
         ...rules,
         pool: { ...rules.pool, allAgesOnly: false },
       })[0]?.tags,
-    ).toEqual(["悬疑", "成人内容"]);
+    ).toEqual(["悬疑"]);
     expect(
       filterAnswerPool([tagged], {
         ...rules,
@@ -165,7 +162,7 @@ describe("filterAnswerPool", () => {
         ...rules,
         pool: { ...rules.pool, includeTags: [], excludeTags: [] },
       })[0]?.tags,
-    ).toEqual(["Comedy", "School", "Drama"]);
+    ).toEqual(["喜剧", "校园", "剧情"]);
   });
 });
 
@@ -303,8 +300,8 @@ describe("daily question session", () => {
 
   it("rotates the answer across dates", () => {
     const picked = new Set(
-      ["2026-08-08", "2026-08-09", "2026-08-10"].map((date) =>
-        createDailyGameSession(dailyCatalog, rules, date).answer.id,
+      ["2026-08-08", "2026-08-09", "2026-08-10"].map(
+        (date) => createDailyGameSession(dailyCatalog, rules, date).answer.id,
       ),
     );
     expect(picked.size).toBeGreaterThan(1);
@@ -346,24 +343,18 @@ describe("filterAnswerPool region toggles", () => {
   });
 
   it("includes Chinese games only when toggled on", () => {
-    const ids = filterAnswerPool(
-      [japanese, chinese, western],
-      {
-        ...rules,
-        pool: { ...rules.pool, includeChina: true },
-      },
-    ).map((item) => item.id);
+    const ids = filterAnswerPool([japanese, chinese, western], {
+      ...rules,
+      pool: { ...rules.pool, includeChina: true },
+    }).map((item) => item.id);
     expect(ids).toEqual(["japan", "china"]);
   });
 
   it("includes Western games only when toggled on", () => {
-    const ids = filterAnswerPool(
-      [japanese, chinese, western],
-      {
-        ...rules,
-        pool: { ...rules.pool, includeWest: true },
-      },
-    ).map((item) => item.id);
+    const ids = filterAnswerPool([japanese, chinese, western], {
+      ...rules,
+      pool: { ...rules.pool, includeWest: true },
+    }).map((item) => item.id);
     expect(ids).toEqual(["japan", "west"]);
   });
 

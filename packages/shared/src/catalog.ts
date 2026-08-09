@@ -1,4 +1,5 @@
 import type { VisualNovelTag } from "./domain.js";
+import { selectRepresentativeTags } from "./tags.js";
 
 const platformAliases: Record<string, string> = {
   pc: "PC",
@@ -89,28 +90,10 @@ export function selectImportantTags(
   maxSpoilerLevel: 0 | 1 | 2,
   limit = 3,
 ): VisualNovelTag[] {
-  const candidates: VisualNovelTag[] = tagDetails?.length
-    ? tagDetails
-    : (fallbackTags ?? []).map((name) => ({ name, spoilerLevel: 0 }));
-  const byName = new Map<
-    string,
-    { detail: VisualNovelTag; originalIndex: number }
-  >();
-  candidates.forEach((detail, originalIndex) => {
-    if (detail.spoilerLevel > maxSpoilerLevel) return;
-    const key = normalizeKey(detail.name);
-    if (!key) return;
-    const existing = byName.get(key);
-    if (!existing || (detail.score ?? 0) > (existing.detail.score ?? 0)) {
-      byName.set(key, { detail, originalIndex });
-    }
-  });
-  return [...byName.values()]
-    .sort(
-      (left, right) =>
-        (right.detail.score ?? 0) - (left.detail.score ?? 0) ||
-        left.originalIndex - right.originalIndex,
-    )
-    .slice(0, Math.max(0, limit))
-    .map(({ detail }) => ({ ...detail }));
+  return selectRepresentativeTags(
+    tagDetails,
+    fallbackTags,
+    maxSpoilerLevel,
+    limit,
+  );
 }
