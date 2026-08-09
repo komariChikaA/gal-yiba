@@ -63,7 +63,7 @@ try {
       .filter((term, index, all) => all.indexOf(term) === index);
 
     let best: {
-      candidate: ReturnType<typeof client.normalizeRaw>;
+      candidate: SourceVisualNovel;
       confidence: number;
       decision: string;
       evidence: object;
@@ -127,6 +127,7 @@ try {
           skipped += 1;
         }
       } else if (best.decision !== "unlikely") {
+        await repository.upsertSourceRecord(best.candidate);
         await repository.suggestLink(
           item.canonicalId,
           best.candidate,
