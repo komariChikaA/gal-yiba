@@ -12,11 +12,15 @@ import {
   comparisonKeys,
   fameTierPoolIncludes,
   fameTierPoolSizes,
+  featureCodeToPlayerId,
+  normalizeFeatureCode,
   publicGameSession,
   selectImportantTags,
   type FameTier,
   type GameMode,
   type GameRules,
+  type RankedBestOf,
+  type RankedFameTier,
   type VisualNovel,
 } from "@gal-yiba/shared";
 import {
@@ -80,9 +84,13 @@ const createRoomSchema = z.object({
 });
 const matchmakingSchema = z.object({
   nickname: nicknameSchema,
-  fameTier: z.enum(["novice", "standard", "veteran", "experienced", "master"]),
+  fameTier: z.enum(["novice", "standard", "veteran"]),
+  bestOf: z.union([z.literal(1), z.literal(3)]),
   playerId: playerIdSchema,
-  featureCode: featureCodeSchema,
+  featureCode: z
+    .string()
+    .transform(normalizeFeatureCode)
+    .pipe(z.string().min(4).max(20)),
 });
 const reconnectSchema = z.object({
   code: z.string().trim().length(5),
@@ -94,6 +102,7 @@ const gameRulesSchema = z.object({
   maxGuesses: z.number().int().min(1).max(20),
   roundTimeSeconds: z.number().int().min(30).max(600),
   bestOf: z.union([z.literal(1), z.literal(3), z.literal(5), z.literal(7)]),
+  replayTiedRounds: z.boolean(),
   comparisonKeys: z
     .array(z.enum(comparisonKeys))
     .min(3)
@@ -192,7 +201,20 @@ function broadcastMatchmakingState(): void {
 
 async function persistMatchIfFinished(roomCode: string): Promise<void> {
   try {
-    await matchRecorder.record(rooms.getMatchReport(roomCode));
+    const report = rooms.getMatchReport(roomCode);
+    await matchRecorder.record(report);
+    if (report?.rankedMatch) {
+      const profiles = await matchRecorder.rankedProfiles(
+        report.players.map((player) => player.playerId),
+      );
+      const updated = rooms.updateRankLabels(
+        roomCode,
+        new Map(
+          profiles.map((profile) => [profile.playerId, profile.rank.label]),
+        ),
+      );
+      io.to(roomCode).emit("room:updated", updated);
+    }
   } catch (error) {
     console.error("match recording failed:", error);
   }
@@ -395,6 +417,34 @@ app.get("/api/leaderboard", async (request, response, next) => {
   }
 });
 
+app.get("/api/leaderboard/ranked", async (request, response, next) => {
+  try {
+    const limit = Math.min(
+      50,
+      Math.max(1, Number(request.query.limit ?? 20) || 20),
+    );
+    response.json({ items: await matchRecorder.rankedLeaderboard(limit) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.get("/api/ranked/profile", async (request, response, next) => {
+  try {
+    response.setHeader("Cache-Control", "no-store");
+    const requestedFeatureCode = z
+      .string()
+      .transform(normalizeFeatureCode)
+      .pipe(z.string().min(4).max(20))
+      .parse(request.query.featureCode);
+    const requestedPlayerId = featureCodeToPlayerId(requestedFeatureCode);
+    const [profile] = await matchRecorder.rankedProfiles([requestedPlayerId]);
+    response.json({ profile });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 app.get("/api/chat-audio/:audioId", (request, response) => {
   const audio = chatAudios.get(String(request.params.audioId ?? ""));
   if (!audio) {
@@ -504,11 +554,13 @@ io.on("connection", (socket) => {
       if (typeof socket.data.roomCode === "string")
         throw new Error("ALREADY_IN_ROOM");
       const input = matchmakingSchema.parse(payload);
+      const playerId = featureCodeToPlayerId(input.featureCode);
       const outcome = matchmaking.enqueue({
         socketId: socket.id,
         nickname: input.nickname,
         fameTier: input.fameTier,
-        ...(input.playerId ? { playerId: input.playerId } : {}),
+        bestOf: input.bestOf,
+        playerId,
         ...(input.featureCode ? { featureCode: input.featureCode } : {}),
         joinedAt: Date.now(),
       });
@@ -528,7 +580,8 @@ io.on("connection", (socket) => {
           socketId: socket.id,
           nickname: input.nickname,
           fameTier: input.fameTier,
-          ...(input.playerId ? { playerId: input.playerId } : {}),
+          bestOf: input.bestOf,
+          playerId,
           ...(input.featureCode ? { featureCode: input.featureCode } : {}),
           joinedAt: Date.now(),
         });
@@ -541,19 +594,34 @@ io.on("connection", (socket) => {
         return;
       }
 
+      const profiles = await matchRecorder.rankedProfiles([
+        outcome.opponent.playerId!,
+        playerId,
+      ]);
+      const rankLabels = new Map(
+        profiles.map((profile) => [profile.playerId, profile.rank.label]),
+      );
       const created = rooms.create(
         outcome.opponent.nickname,
         "duel",
         outcome.opponent.fameTier,
         outcome.opponent.playerId,
         outcome.opponent.featureCode,
-        true,
+        {
+          rulesLocked: true,
+          rankedMatch: {
+            fameTier: outcome.opponent.fameTier as RankedFameTier,
+            bestOf: outcome.opponent.bestOf as RankedBestOf,
+          },
+          hostRankLabel: rankLabels.get(outcome.opponent.playerId!) ?? "初心★1",
+        },
       );
       const joined = rooms.join(
         created.room.code,
         input.nickname,
-        input.playerId,
+        playerId,
         input.featureCode,
+        rankLabels.get(playerId) ?? "初心★1",
       );
       const matchedRoom = rooms.get(created.room.code);
       await opponentSocket.join(matchedRoom.code);
@@ -645,8 +713,9 @@ io.on("connection", (socket) => {
       const identity = socketIdentity(socket);
       await persistMatchIfFinished(identity.roomCode);
       const room = rooms.rematch(identity.roomCode, identity.playerId);
-      matchRecorder.forget(identity.roomCode);
+      if (room.phase === "lobby") matchRecorder.forget(identity.roomCode);
       await broadcastRoomState(room.code);
+      acknowledge({ ok: true, room });
     } catch (error) {
       acknowledge({
         ok: false,

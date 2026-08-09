@@ -3,12 +3,16 @@ import { io } from "socket.io-client";
 import { MusicPlayer } from "./MusicPlayer";
 import {
   defaultComparisonKeys,
+  rankDefinitions,
   voteTierThresholds,
   type ComparisonKey,
   type ComparisonResult,
   type FameTier,
   type GameMode,
   type GameRules,
+  type PlayerRank,
+  type RankedBestOf,
+  type RankedFameTier,
 } from "@gal-yiba/shared";
 import {
   comparisonSymbol,
@@ -119,11 +123,30 @@ const fameOptions: Array<{
   },
 ];
 
+const rankedFameOptions: Array<{
+  value: RankedFameTier;
+  label: string;
+  winRate: string;
+}> = [
+  { value: "novice", label: "萌新", winRate: "25% 胜率即可增长" },
+  { value: "standard", label: "入门", winRate: "30% 胜率即可增长" },
+  { value: "veteran", label: "标准", winRate: "40% 胜率即可增长" },
+];
+
+const rankPromotionRows = [
+  { name: "初心", tier: "beginner" },
+  { name: "旮士", tier: "ga_soldier" },
+  { name: "旮杰", tier: "ga_elite" },
+  { name: "旮豪", tier: "ga_master" },
+  { name: "旮圣", tier: "ga_saint" },
+] as const;
+
 interface RoomPlayer {
   id: string;
   nickname: string;
   ready: boolean;
   connected: boolean;
+  rankLabel: string | null;
 }
 
 interface RoomSnapshot {
@@ -133,6 +156,11 @@ interface RoomSnapshot {
   players: RoomPlayer[];
   rules: GameRules;
   rulesLocked: boolean;
+  rankedMatch: {
+    fameTier: RankedFameTier;
+    bestOf: RankedBestOf;
+  } | null;
+  rematchVotes: string[];
   round: {
     roundNumber: number;
     startedAt: string;
@@ -229,6 +257,8 @@ interface LeaderboardEntry {
   nickname: string;
   wins: number;
   matches: number;
+  pt?: number;
+  rank?: PlayerRank;
 }
 
 interface RealtimeStats {
@@ -240,8 +270,17 @@ interface RealtimeStats {
 
 interface MatchmakingStats {
   total: number;
-  byFameTier: Record<FameTier, number>;
+  byFameTier: Record<RankedFameTier, number>;
+  byQueue: Record<string, number>;
   updatedAt: string;
+}
+
+interface RankedProfile {
+  playerId: string;
+  pt: number;
+  wins: number;
+  matches: number;
+  rank: PlayerRank;
 }
 
 interface MappingSuggestion {
@@ -273,6 +312,9 @@ export function App() {
   );
   const [matchmakingStats, setMatchmakingStats] =
     useState<MatchmakingStats | null>(null);
+  const [rankedProfile, setRankedProfile] = useState<RankedProfile | null>(
+    null,
+  );
   const [matchmakingPosition, setMatchmakingPosition] = useState<number | null>(
     null,
   );
@@ -283,6 +325,9 @@ export function App() {
   const [nickname, setNickname] = useState("");
   const [selectedMode, setSelectedMode] = useState<GameMode>("solo");
   const [selectedFameTier, setSelectedFameTier] = useState<FameTier>("veteran");
+  const [matchmakingFameTier, setMatchmakingFameTier] =
+    useState<RankedFameTier>("veteran");
+  const [matchmakingBestOf, setMatchmakingBestOf] = useState<RankedBestOf>(1);
   const [fameCounts, setFameCounts] = useState<Record<FameTier, number> | null>(
     null,
   );
@@ -292,9 +337,9 @@ export function App() {
   const [error, setError] = useState("");
   const [clockNow, setClockNow] = useState(() => Date.now());
   const [showLeaderboard, setShowLeaderboard] = useState(false);
-  const [leaderboardMode, setLeaderboardMode] = useState<"all" | GameMode>(
-    "all",
-  );
+  const [leaderboardMode, setLeaderboardMode] = useState<
+    "ranked" | "all" | GameMode
+  >("ranked");
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[] | null>(
     null,
   );
@@ -337,6 +382,20 @@ export function App() {
   const currentPlayer = room?.players.find(
     (player) => player.id === session?.playerId,
   );
+  const currentRank = rankedProfile?.rank;
+  const currentRankProgress = currentRank
+    ? currentRank.nextMinPt === null
+      ? 100
+      : Math.max(
+          0,
+          Math.min(
+            100,
+            ((rankedProfile.pt - currentRank.minPt) /
+              (currentRank.nextMinPt - currentRank.minPt)) *
+              100,
+          ),
+        )
+    : 0;
   const canEnter = nickname.trim().length > 0 && connected;
   const activeGame = daily?.game ?? (room?.round && game ? game : null);
   const roundEyebrow = daily
@@ -359,7 +418,7 @@ export function App() {
       : [];
   const matchWon =
     room != null &&
-    room.rules.bestOf > 1 &&
+    room.phase === "finished" &&
     room.matchWinnerPlayerId === session?.playerId;
   const remainingSeconds = activeGame
     ? Math.max(
@@ -414,6 +473,10 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (featureCode.length < 4) {
+      setRankedProfile(null);
+      return;
+    }
     const controller = new AbortController();
     void fetch("/api/matchmaking/stats", { signal: controller.signal })
       .then((response) => response.json() as Promise<MatchmakingStats>)
@@ -423,6 +486,22 @@ export function App() {
       });
     return () => controller.abort();
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(
+      `/api/ranked/profile?featureCode=${encodeURIComponent(featureCode)}`,
+      { signal: controller.signal },
+    )
+      .then(
+        (response) => response.json() as Promise<{ profile: RankedProfile }>,
+      )
+      .then((body) => setRankedProfile(body.profile))
+      .catch((requestError: Error) => {
+        if (requestError.name !== "AbortError") setRankedProfile(null);
+      });
+    return () => controller.abort();
+  }, [featureCode, playerId, room?.revision]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -439,8 +518,11 @@ export function App() {
     if (!showLeaderboard) return;
     setLeaderboard(null);
     const controller = new AbortController();
-    const query = leaderboardMode === "all" ? "" : `?mode=${leaderboardMode}`;
-    void fetch(`/api/leaderboard${query}`, { signal: controller.signal })
+    const endpoint =
+      leaderboardMode === "ranked"
+        ? "/api/leaderboard/ranked"
+        : `/api/leaderboard${leaderboardMode === "all" ? "" : `?mode=${leaderboardMode}`}`;
+    void fetch(endpoint, { signal: controller.signal })
       .then(
         (response) => response.json() as Promise<{ items: LeaderboardEntry[] }>,
       )
@@ -866,13 +948,22 @@ export function App() {
 
   function joinMatchmaking() {
     setError("");
+    if (!nickname.trim()) {
+      setError("请先输入昵称，再加入匹配池。");
+      return;
+    }
+    if (featureCode.length < 4) {
+      setError("段位与特征码绑定，请先输入至少 4 位特征码。");
+      return;
+    }
     socket.emit(
       "matchmaking:join",
       {
         nickname: nickname.trim(),
-        fameTier: selectedFameTier,
+        fameTier: matchmakingFameTier,
+        bestOf: matchmakingBestOf,
         playerId,
-        featureCode: featureCode || undefined,
+        featureCode,
       },
       (response: {
         ok: boolean;
@@ -1252,110 +1343,235 @@ export function App() {
                       placeholder="留空则匿名统计"
                     />
                   </label>
-                  <div className="entry-section">
-                    <span>选择玩法</span>
-                    <div className="mode-picker">
-                      {modeOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          className={
-                            selectedMode === option.value ? "selected" : ""
-                          }
-                          onClick={() => setSelectedMode(option.value)}
-                          disabled={matchmakingPosition !== null}
-                        >
-                          <b>{option.label}</b>
-                          <small>{option.description}</small>
-                        </button>
-                      ))}
+                  <section className="entry-function-block room-entry-block">
+                    <header>
+                      <div>
+                        <small>自定义玩法</small>
+                        <h2>创建或加入房间</h2>
+                      </div>
+                      <span>房主可调整题池与判定标准</span>
+                    </header>
+                    <div className="entry-section">
+                      <span>选择玩法</span>
+                      <div className="mode-picker">
+                        {modeOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            className={
+                              selectedMode === option.value ? "selected" : ""
+                            }
+                            onClick={() => setSelectedMode(option.value)}
+                            disabled={matchmakingPosition !== null}
+                          >
+                            <b>{option.label}</b>
+                            <small>{option.description}</small>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="entry-section">
-                    <span>作品知名度</span>
-                    <div className="fame-picker">
-                      {fameOptions.map((option) => (
-                        <button
-                          key={option.value}
-                          className={
-                            selectedFameTier === option.value ? "selected" : ""
-                          }
-                          onClick={() => setSelectedFameTier(option.value)}
-                          disabled={matchmakingPosition !== null}
-                          title={option.description}
-                        >
-                          <b>{option.label}</b>
-                          <small>
-                            {fameCounts
-                              ? `${fameCounts[option.value]} 部`
-                              : option.description}
-                          </small>
-                        </button>
-                      ))}
-                    </div>
-                    <p className="tier-description">
-                      {
-                        fameOptions.find(
-                          (option) => option.value === selectedFameTier,
-                        )?.description
-                      }
-                    </p>
-                  </div>
-                  <div className="entry-actions">
-                    {matchmakingPosition === null ? (
-                      <button
-                        className="matchmaking-button"
-                        disabled={!canEnter}
-                        onClick={joinMatchmaking}
-                      >
-                        1v1 快速匹配 · 当前档位池中{" "}
-                        {matchmakingStats?.byFameTier[selectedFameTier] ?? 0} 人
-                        <small>使用系统默认判定标准</small>
-                      </button>
-                    ) : (
-                      <button
-                        className="matchmaking-button waiting"
-                        onClick={cancelMatchmaking}
-                      >
-                        匹配中 · 当前第 {matchmakingPosition} 位
-                        <small>点击取消匹配</small>
-                      </button>
-                    )}
-                    <button
-                      className="daily-button"
-                      disabled={!connected || matchmakingPosition !== null}
-                      onClick={() => void enterDaily()}
-                    >
-                      每日同题 · 所有人同一天同一题
-                    </button>
-                    <button
-                      className="primary"
-                      disabled={!canEnter || matchmakingPosition !== null}
-                      onClick={createRoom}
-                    >
-                      {selectedMode === "solo" ? "进入单人准备" : "创建房间"}
-                    </button>
-                    <div className="join-control">
-                      <input
-                        value={joinCode}
-                        maxLength={5}
-                        onChange={(event) =>
-                          setJoinCode(event.target.value.toUpperCase())
+                    <div className="entry-section">
+                      <span>作品知名度</span>
+                      <div className="fame-picker">
+                        {fameOptions.map((option) => (
+                          <button
+                            key={option.value}
+                            className={
+                              selectedFameTier === option.value
+                                ? "selected"
+                                : ""
+                            }
+                            onClick={() => setSelectedFameTier(option.value)}
+                            disabled={matchmakingPosition !== null}
+                            title={option.description}
+                          >
+                            <b>{option.label}</b>
+                            <small>
+                              {fameCounts
+                                ? `${fameCounts[option.value]} 部`
+                                : option.description}
+                            </small>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="tier-description">
+                        {
+                          fameOptions.find(
+                            (option) => option.value === selectedFameTier,
+                          )?.description
                         }
-                        placeholder="房间码"
-                        disabled={matchmakingPosition !== null}
-                      />
-                      <button
-                        disabled={
-                          !canEnter ||
-                          joinCode.length !== 5 ||
-                          matchmakingPosition !== null
-                        }
-                        onClick={joinRoom}
-                      >
-                        加入
-                      </button>
+                      </p>
                     </div>
-                  </div>
+                    <div className="entry-actions room-entry-actions">
+                      <button
+                        className="daily-button"
+                        disabled={!connected || matchmakingPosition !== null}
+                        onClick={() => void enterDaily()}
+                      >
+                        每日同题 · 所有人同一天同一题
+                      </button>
+                      <button
+                        className="primary"
+                        disabled={!canEnter || matchmakingPosition !== null}
+                        onClick={createRoom}
+                      >
+                        {selectedMode === "solo" ? "进入单人准备" : "创建房间"}
+                      </button>
+                      <div className="join-control">
+                        <input
+                          value={joinCode}
+                          maxLength={5}
+                          onChange={(event) =>
+                            setJoinCode(event.target.value.toUpperCase())
+                          }
+                          placeholder="房间码"
+                          disabled={matchmakingPosition !== null}
+                        />
+                        <button
+                          disabled={
+                            !canEnter ||
+                            joinCode.length !== 5 ||
+                            matchmakingPosition !== null
+                          }
+                          onClick={joinRoom}
+                        >
+                          加入
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="entry-function-block ranked-match-block">
+                    <header>
+                      <div>
+                        <small>竞技玩法</small>
+                        <h2>1v1 段位匹配</h2>
+                      </div>
+                      <span>
+                        {featureCode.length >= 4
+                          ? `已绑定特征码 ${featureCode}`
+                          : "需先绑定至少 4 位特征码"}
+                      </span>
+                    </header>
+                    <div className="rank-profile-card">
+                      <div>
+                        <small>当前段位</small>
+                        <strong>
+                          {featureCode.length >= 4
+                            ? (currentRank?.label ?? "初心★1")
+                            : "未绑定"}
+                        </strong>
+                      </div>
+                      <div>
+                        <b>
+                          {featureCode.length >= 4
+                            ? `${rankedProfile?.pt ?? 0} PT`
+                            : "— PT"}
+                        </b>
+                        <small>
+                          {rankedProfile?.wins ?? 0} 胜 /{" "}
+                          {rankedProfile?.matches ?? 0} 场
+                        </small>
+                      </div>
+                      <div className="rank-progress" aria-label="段位进度">
+                        <i style={{ width: `${currentRankProgress}%` }} />
+                      </div>
+                      <p>
+                        {featureCode.length < 4
+                          ? "输入特征码后读取对应段位；同一码可跨设备继续。"
+                          : rankedProfile === null
+                            ? "正在读取绑定段位……"
+                            : currentRank?.nextMinPt == null
+                              ? "已达到最高段位"
+                              : `距下一段还需 ${Math.max(0, currentRank.nextMinPt - (rankedProfile?.pt ?? 0))} PT`}
+                      </p>
+                    </div>
+                    <div className="entry-section ranked-match-settings">
+                      <span>匹配难度与赛制</span>
+                      <div className="ranked-setting-row">
+                        <div
+                          className="ranked-difficulty"
+                          aria-label="匹配难度"
+                        >
+                          {rankedFameOptions.map((option) => (
+                            <button
+                              key={option.value}
+                              className={
+                                matchmakingFameTier === option.value
+                                  ? "selected"
+                                  : ""
+                              }
+                              disabled={matchmakingPosition !== null}
+                              onClick={() =>
+                                setMatchmakingFameTier(option.value)
+                              }
+                            >
+                              <b>{option.label}</b>
+                              <small>{option.winRate}</small>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="ranked-best-of" aria-label="匹配赛制">
+                          {([1, 3] as const).map((bestOf) => (
+                            <button
+                              key={bestOf}
+                              className={
+                                matchmakingBestOf === bestOf ? "selected" : ""
+                              }
+                              disabled={matchmakingPosition !== null}
+                              onClick={() => setMatchmakingBestOf(bestOf)}
+                            >
+                              BO{bestOf}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="tier-description">
+                        平局不计有效局数；BO3 的 PT 奖励与扣分均高于 BO1。
+                      </p>
+                    </div>
+                    <div className="ranked-match-action">
+                      {matchmakingPosition === null ? (
+                        <button
+                          className="matchmaking-button"
+                          disabled={!connected}
+                          onClick={joinMatchmaking}
+                        >
+                          加入匹配池 · 当前队列{" "}
+                          {matchmakingStats?.byQueue[
+                            `${matchmakingFameTier}:bo${matchmakingBestOf}`
+                          ] ?? 0}{" "}
+                          人
+                          <small>池中 0 人也可加入 · 点击后进入等待队列</small>
+                        </button>
+                      ) : (
+                        <button
+                          className="matchmaking-button waiting"
+                          onClick={cancelMatchmaking}
+                        >
+                          匹配中 · 当前第 {matchmakingPosition} 位
+                          <small>点击取消匹配</small>
+                        </button>
+                      )}
+                    </div>
+                    <details className="rank-promotion-table">
+                      <summary>查看段位晋级表</summary>
+                      <div>
+                        {rankPromotionRows.map((row) => (
+                          <p key={row.tier}>
+                            <b>{row.name}</b>
+                            {rankDefinitions
+                              .filter((rank) => rank.tier === row.tier)
+                              .map((rank) => `★${rank.level} ${rank.minPt} PT`)
+                              .join(" · ")}
+                          </p>
+                        ))}
+                        <p>
+                          <b>魂天</b>
+                          Lv1 6750 PT · 每级 +800 PT · Lv20 21950 PT
+                        </p>
+                      </div>
+                    </details>
+                  </section>
                   {error && <p className="error-message">{error}</p>}
                 </div>
               ) : (
@@ -1375,7 +1591,12 @@ export function App() {
                     {room.players.map((player) => (
                       <div key={player.id}>
                         <i>{player.nickname.slice(0, 1).toUpperCase()}</i>
-                        <span>{player.nickname}</span>
+                        <span>
+                          {player.rankLabel && (
+                            <em className="rank-badge">{player.rankLabel}</em>
+                          )}
+                          {player.nickname}
+                        </span>
                         {player.id === room.hostPlayerId && <b>房主</b>}
                         {player.ready && <b className="ready-mark">已准备</b>}
                         {!player.connected && (
@@ -1729,6 +1950,25 @@ export function App() {
                         </select>
                       </label>
                     )}
+                    {room.rules.mode !== "solo" && (
+                      <label className="checkbox-option">
+                        <span>平局不计有效局数</span>
+                        <input
+                          type="checkbox"
+                          checked={room.rules.replayTiedRounds}
+                          disabled={!canEditRules}
+                          onChange={(event) =>
+                            saveRules({
+                              ...room.rules,
+                              replayTiedRounds: event.target.checked,
+                            })
+                          }
+                        />
+                        <small>
+                          开启后必须有人达到胜场目标，比赛才会结束。
+                        </small>
+                      </label>
+                    )}
                   </div>
 
                   <p className="exclude-label">排除标签</p>
@@ -1907,9 +2147,21 @@ export function App() {
                   </strong>
                 </div>
                 {room?.phase === "finished" &&
-                room?.hostPlayerId === session?.playerId ? (
-                  <button className="rematch-button" onClick={rematchRoom}>
-                    再来一局 · 同房间继续
+                (room.rankedMatch ||
+                  room.hostPlayerId === session?.playerId) ? (
+                  <button
+                    className="rematch-button"
+                    onClick={rematchRoom}
+                    disabled={
+                      room.rankedMatch !== null &&
+                      room.rematchVotes.includes(session?.playerId ?? "")
+                    }
+                  >
+                    {room.rankedMatch
+                      ? room.rematchVotes.includes(session?.playerId ?? "")
+                        ? "已申请 · 等待对手同意"
+                        : "申请再来一把 · 仍计入段位"
+                      : "再来一局 · 同房间继续"}
                   </button>
                 ) : null}
               </>
@@ -1932,13 +2184,20 @@ export function App() {
                     );
                     const isSelf =
                       playerProgress.playerId === session?.playerId;
+                    const isWinner =
+                      room.phase !== "active" &&
+                      (room.matchWinnerPlayerId ?? room.winnerPlayerId) ===
+                        playerProgress.playerId;
                     return (
                       <div
                         key={playerProgress.playerId}
-                        className={isSelf ? "self" : "opponent"}
+                        className={`${isSelf ? "self" : "opponent"} ${isWinner ? "winner" : ""}`}
                       >
                         <small>{isSelf ? "自己" : "对手"}</small>
                         <span className="duel-nickname">
+                          {player?.rankLabel && (
+                            <em className="rank-badge">{player.rankLabel}</em>
+                          )}
                           {player?.nickname ?? "玩家"}
                         </span>
                         <i>
@@ -1955,11 +2214,31 @@ export function App() {
                   const player = room.players.find(
                     (item) => item.id === playerProgress.playerId,
                   );
+                  const isWinner =
+                    room.phase !== "active" &&
+                    (room.matchWinnerPlayerId ?? room.winnerPlayerId) ===
+                      playerProgress.playerId;
                   return (
-                    <div key={playerProgress.playerId}>
-                      <span>{player?.nickname ?? "玩家"}</span>
+                    <div
+                      key={playerProgress.playerId}
+                      className={isWinner ? "winner" : undefined}
+                    >
+                      <span>
+                        {player?.rankLabel && (
+                          <em className="rank-badge">{player.rankLabel}</em>
+                        )}
+                        {player?.nickname ?? "玩家"}
+                      </span>
                       <b>{playerProgress.guessCount} 次</b>
-                      <i>{playerProgress.status}</i>
+                      <i>
+                        {playerProgress.status === "won"
+                          ? "胜利"
+                          : playerProgress.status === "lost"
+                            ? "本轮结束"
+                            : playerProgress.status === "expired"
+                              ? "已超时"
+                              : "答题中"}
+                      </i>
                     </div>
                   );
                 })}
@@ -2146,22 +2425,26 @@ export function App() {
               )}
             </p>
             <div className="leaderboard-filters">
-              {(["all", "solo", "duel", "race"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  className={leaderboardMode === mode ? "active" : ""}
-                  onClick={() => setLeaderboardMode(mode)}
-                >
-                  {mode === "all"
-                    ? "全部"
-                    : mode === "solo"
-                      ? "单人"
-                      : mode === "duel"
-                        ? "1v1"
-                        : "多人"}
-                </button>
-              ))}
+              {(["ranked", "all", "solo", "duel", "race"] as const).map(
+                (mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={leaderboardMode === mode ? "active" : ""}
+                    onClick={() => setLeaderboardMode(mode)}
+                  >
+                    {mode === "ranked"
+                      ? "匹配段位"
+                      : mode === "all"
+                        ? "全部"
+                        : mode === "solo"
+                          ? "单人"
+                          : mode === "duel"
+                            ? "1v1"
+                            : "多人"}
+                  </button>
+                ),
+              )}
             </div>
             {leaderboard === null ? (
               <p className="leaderboard-empty">加载中……</p>
@@ -2175,9 +2458,19 @@ export function App() {
                     className={entry.playerId === playerId ? "self" : undefined}
                   >
                     <i>{index + 1}</i>
-                    <b>{entry.nickname}</b>
+                    <b>
+                      {leaderboardMode === "ranked" && entry.rank && (
+                        <em className="rank-badge">{entry.rank.label}</em>
+                      )}
+                      {entry.nickname}
+                    </b>
                     <span>{entry.wins} 胜</span>
-                    <small>{entry.matches} 场</small>
+                    <small>
+                      {entry.matches} 场
+                      {leaderboardMode === "ranked" && entry.pt != null
+                        ? ` · ${entry.pt} PT`
+                        : ""}
+                    </small>
                   </li>
                 ))}
               </ol>

@@ -84,6 +84,7 @@ describe("RoomRegistry", () => {
       "tags",
     ]);
     expect(created.room.rules.roundTimeSeconds).toBe(300);
+    expect(created.room.rules.replayTiedRounds).toBe(false);
     expect(created.room.rules.pool.fameTier).toBe("veteran");
     expect(created.room.rules.pool.includeOtome).toBe(false);
   });
@@ -123,7 +124,7 @@ describe("RoomRegistry", () => {
       "standard",
       undefined,
       undefined,
-      true,
+      { rulesLocked: true },
     );
     expect(created.room.rulesLocked).toBe(true);
     expect(created.room.rules.comparisonKeys).toEqual(defaultComparisonKeys);
@@ -241,6 +242,7 @@ describe("RoomRegistry", () => {
   it("caps 1v1 rooms at two players and awards a win when one leaves", () => {
     const registry = new RoomRegistry();
     const host = registry.create("房主", "duel");
+    expect(host.room.rules.replayTiedRounds).toBe(true);
     const guest = registry.join(host.room.code, "玩家二");
     expect(() => registry.join(host.room.code, "玩家三")).toThrow("ROOM_FULL");
     registry.setReady(host.room.code, guest.session.playerId, true);
@@ -389,30 +391,83 @@ describe("best-of rounds", () => {
     ]);
   });
 
-  it("never starts more rounds than the configured best of", () => {
+  it("replays tied rounds without consuming the best-of game number", () => {
     const registry = new RoomRegistry();
     const { host, guest } = startDuel(registry, 3);
-    for (let round = 1; round <= 3; round += 1) {
-      const expired = registry.expire(
+    const tied = registry.expire(
+      host.room.code,
+      new Date("2026-08-08T00:05:00.000Z"),
+    );
+    expect(tied?.phase).toBe("round_result");
+    const replay = registry.advanceIntermission(
+      host.room.code,
+      new Date("2026-08-08T00:06:00.000Z"),
+    );
+    expect(replay?.round?.roundNumber).toBe(1);
+
+    registry.submitPlayerGuess(
+      host.room.code,
+      guest.session.playerId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:06:05.000Z"),
+    );
+    registry.advanceIntermission(
+      host.room.code,
+      new Date("2026-08-08T00:07:05.000Z"),
+    );
+    expect(registry.get(host.room.code).round?.roundNumber).toBe(2);
+    const finished = registry.submitPlayerGuess(
+      host.room.code,
+      guest.session.playerId,
+      "answer",
+      catalog,
+      new Date("2026-08-08T00:07:10.000Z"),
+    );
+    expect(finished.room.phase).toBe("finished");
+    expect(finished.room.matchWinnerPlayerId).toBe(guest.session.playerId);
+    expect(
+      registry
+        .getMatchReport(host.room.code)
+        ?.rounds.map((round) => round.winnerPlayerId),
+    ).toEqual([null, guest.session.playerId, guest.session.playerId]);
+  });
+
+  it("keeps fixed-round tie semantics when the option is disabled", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create("房主", "duel");
+    const guest = registry.join(host.room.code, "玩家二");
+    registry.setReady(host.room.code, guest.session.playerId, true);
+    registry.updateRules(host.room.code, host.session.playerId, {
+      ...host.room.rules,
+      bestOf: 3,
+      replayTiedRounds: false,
+    });
+    registry.start(host.room.code, host.session.playerId, catalog, {
+      random: () => 0,
+      now: new Date("2026-08-08T00:00:00.000Z"),
+    });
+
+    registry.expire(host.room.code, new Date("2026-08-08T00:05:00.000Z"));
+    expect(
+      registry.advanceIntermission(
         host.room.code,
-        new Date(`2026-08-08T00:${String(round * 6).padStart(2, "0")}:00.000Z`),
-      );
-      if (round < 3) {
-        expect(expired?.phase).toBe("round_result");
-        const advanced = registry.advanceIntermission(
-          host.room.code,
-          new Date(
-            `2026-08-08T00:${String(round * 6 + 1).padStart(2, "0")}:00.000Z`,
-          ),
-        );
-        expect(advanced?.phase).toBe("active");
-        expect(advanced?.round?.roundNumber).toBe(round + 1);
-      } else {
-        expect(expired?.phase).toBe("finished");
-        expect(expired?.round?.roundNumber).toBe(round);
-      }
-    }
-    expect(registry.get(host.room.code).matchWinnerPlayerId).toBeNull();
+        new Date("2026-08-08T00:06:00.000Z"),
+      )?.round?.roundNumber,
+    ).toBe(2);
+    registry.expire(host.room.code, new Date("2026-08-08T00:11:00.000Z"));
+    expect(
+      registry.advanceIntermission(
+        host.room.code,
+        new Date("2026-08-08T00:12:00.000Z"),
+      )?.round?.roundNumber,
+    ).toBe(3);
+    const finished = registry.expire(
+      host.room.code,
+      new Date("2026-08-08T00:17:00.000Z"),
+    );
+    expect(finished?.phase).toBe("finished");
+    expect(finished?.matchWinnerPlayerId).toBeNull();
   });
 });
 
@@ -490,6 +545,47 @@ describe("rematch in the same room", () => {
     expect(registry.rematch(host.room.code, host.session.playerId).phase).toBe(
       "lobby",
     );
+  });
+
+  it("requires both ranked players to accept a rematch", () => {
+    const registry = new RoomRegistry();
+    const host = registry.create(
+      "房主",
+      "duel",
+      "novice",
+      undefined,
+      undefined,
+      {
+        rulesLocked: true,
+        rankedMatch: { fameTier: "novice", bestOf: 1 },
+        hostRankLabel: "初心★1",
+      },
+    );
+    const guest = registry.join(
+      host.room.code,
+      "玩家二",
+      undefined,
+      undefined,
+      "初心★2",
+    );
+    const rankedCatalog = [visualNovel("answer")];
+    registry.setReady(host.room.code, guest.session.playerId, true);
+    registry.start(host.room.code, host.session.playerId, rankedCatalog, {
+      random: () => 0,
+    });
+    registry.submitPlayerGuess(
+      host.room.code,
+      guest.session.playerId,
+      "answer",
+      rankedCatalog,
+    );
+
+    const waiting = registry.rematch(host.room.code, guest.session.playerId);
+    expect(waiting.phase).toBe("finished");
+    expect(waiting.rematchVotes).toEqual([guest.session.playerId]);
+    expect(
+      registry.rematch(host.room.code, host.session.playerId),
+    ).toMatchObject({ phase: "lobby", rematchVotes: [] });
   });
 });
 

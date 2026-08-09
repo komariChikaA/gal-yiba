@@ -2778,7 +2778,8 @@ button {
   color: var(--ink-strong);
   background: color-mix(in srgb, var(--honey) 38%, var(--surface-solid));
 }
-.entry-actions .matchmaking-button {
+.entry-actions .matchmaking-button,
+.ranked-match-action .matchmaking-button {
   grid-column: 1 / -1;
   display: grid;
   place-items: center;
@@ -2792,14 +2793,245 @@ button {
   );
   font-weight: 800;
 }
-.entry-actions .matchmaking-button small {
+.entry-actions .matchmaking-button small,
+.ranked-match-action .matchmaking-button small {
   color: var(--muted);
   font-size: 10px;
   font-weight: 500;
 }
-.entry-actions .matchmaking-button.waiting {
+.entry-actions .matchmaking-button.waiting,
+.ranked-match-action .matchmaking-button.waiting {
   border-color: var(--coral);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--coral) 16%, transparent);
+}
+.entry-function-block {
+  margin-top: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  padding: 18px;
+}
+.entry-function-block > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--line);
+}
+.entry-function-block > header small,
+.entry-function-block > header span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.entry-function-block > header small {
+  color: var(--coral-strong);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+.entry-function-block > header h2 {
+  margin: 3px 0 0;
+  color: var(--ink-strong);
+  font-size: 19px;
+}
+.room-entry-block {
+  background: color-mix(in srgb, var(--coral-soft) 22%, var(--surface-solid));
+}
+.ranked-match-block {
+  background: color-mix(in srgb, var(--mint-soft) 34%, var(--surface-solid));
+  box-shadow: inset 4px 0 color-mix(in srgb, var(--honey) 72%, transparent);
+}
+.rank-profile-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 16px;
+  margin-top: 16px;
+  border: 1px solid color-mix(in srgb, var(--honey) 68%, var(--line));
+  border-radius: 14px;
+  padding: 14px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--honey) 18%, var(--surface-solid));
+}
+.rank-profile-card > div:nth-child(2) {
+  display: grid;
+  justify-items: end;
+}
+.rank-profile-card small,
+.rank-profile-card p {
+  color: var(--muted);
+  font-size: 10px;
+}
+.rank-profile-card strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-strong);
+  font-size: 21px;
+}
+.rank-profile-card b {
+  color: var(--coral-strong);
+  font-size: 17px;
+}
+.rank-profile-card .rank-progress {
+  grid-column: 1 / -1;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 20%, var(--surface-solid));
+}
+.rank-profile-card .rank-progress i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--honey), var(--coral));
+}
+.rank-profile-card p {
+  grid-column: 1 / -1;
+  margin: 0;
+  text-align: right;
+}
+.ranked-match-action {
+  margin-top: 14px;
+}
+.ranked-match-action .matchmaking-button {
+  width: 100%;
+  min-height: 54px;
+}
+.rank-promotion-table {
+  margin-top: 14px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.rank-promotion-table summary {
+  color: var(--coral-strong);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+.rank-promotion-table > div {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.rank-promotion-table p {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 8px;
+  margin: 0;
+  border-radius: 9px;
+  padding: 7px 9px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface-solid) 68%, transparent);
+  font-size: 10px;
+  line-height: 1.55;
+}
+.rank-promotion-table b {
+  color: var(--ink-strong);
+}
+.ranked-setting-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+}
+.ranked-difficulty,
+.ranked-best-of {
+  display: grid;
+  gap: 8px;
+}
+.ranked-difficulty {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.ranked-best-of {
+  grid-template-columns: repeat(2, minmax(58px, 1fr));
+}
+.ranked-difficulty button,
+.ranked-best-of button {
+  border: 1px solid var(--line-strong);
+  border-radius: 13px;
+  padding: 9px 10px;
+  color: var(--ink);
+  background: var(--surface-solid);
+}
+.ranked-difficulty button {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+.ranked-difficulty button small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.ranked-difficulty button.selected,
+.ranked-best-of button.selected {
+  border-color: var(--warning);
+  color: var(--warning-ink);
+  background: color-mix(in srgb, var(--warning) 42%, var(--surface-solid));
+  box-shadow: inset 0 -3px color-mix(in srgb, var(--warning) 78%, #b77819);
+}
+.ranked-difficulty button:disabled,
+.ranked-best-of button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.rank-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  border: 1px solid color-mix(in srgb, var(--warning) 72%, var(--line-strong));
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: var(--warning-ink);
+  background: color-mix(in srgb, var(--warning) 52%, var(--surface-solid));
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.pool-options label.checkbox-option {
+  flex-wrap: wrap;
+}
+.pool-options label.checkbox-option small {
+  flex-basis: 100%;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.duel-progress > div.winner,
+.race-progress > div.winner {
+  border-color: color-mix(in srgb, var(--warning) 85%, #b77819);
+  color: var(--warning-ink);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--warning) 70%, #fff9df),
+    color-mix(in srgb, var(--success) 34%, #fff9df)
+  );
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--warning) 24%, transparent),
+    0 14px 28px color-mix(in srgb, var(--warning) 28%, transparent);
+}
+.duel-progress > div.winner small,
+.duel-progress > div.winner span,
+.duel-progress > div.winner b,
+.duel-progress > div.winner i,
+.race-progress > div.winner span,
+.race-progress > div.winner b,
+.race-progress > div.winner i {
+  color: var(--warning-ink);
+}
+.duel-progress > div.winner::before,
+.race-progress > div.winner::before {
+  content: "WIN";
+  display: inline-flex;
+  width: max-content;
+  margin-bottom: 5px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: #fffdf4;
+  background: #8c5a14;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+.race-progress > div.winner::before {
+  grid-column: 1 / -1;
 }
 .mode-picker button:disabled,
 .fame-picker button:disabled {
@@ -2818,5 +3050,17 @@ button {
     align-items: flex-start;
     margin-inline: 12px;
     font-size: 12px;
+  }
+  .ranked-setting-row {
+    grid-template-columns: 1fr;
+  }
+  .entry-function-block > header {
+    display: grid;
+  }
+  .rank-profile-card {
+    grid-template-columns: 1fr;
+  }
+  .rank-profile-card > div:nth-child(2) {
+    justify-items: start;
   }
 }

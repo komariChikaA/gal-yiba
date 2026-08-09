@@ -15,6 +15,7 @@ export const migrations: Migration[] = [
   { version: 3, filename: "003_match_players.sql" },
   { version: 4, filename: "004_match_mode_check.sql" },
   { version: 5, filename: "005_match_feature_code.sql" },
+  { version: 6, filename: "006_ranked_matchmaking.sql" },
 ];
 
 function titleKeys(record: SourceVisualNovel): string[] {
