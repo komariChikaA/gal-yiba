@@ -80,6 +80,21 @@ VNDB 刷新默认在每个 100 条批次之间等待 3 秒。若官方接口仍�
 pnpm refresh:vndb -- --offset=1000 --pause-ms=5000
 ```
 
+### Bangumi 数据全目录回填
+
+让已有题库的每个作品都带上 Bangumi 数据（中文名、评分、票数、标签）。要求 `.env` 配置
+`BANGUMI_USER_AGENT` 与 `BANGUMI_ACCESS_TOKEN`（[api.bgm.tv](https://bangumi.github.io/api/) 申请）。
+回填会按标题搜索 Bangumi、用跨库匹配打分：高分（≥85）自动挂 verified 链接立即生效，
+中分挂 suggested 待人工审核，低分跳过：
+
+```bash
+pnpm sync:bangumi-backfill -- --limit=2000 --delay-ms=200
+# 可选：--offset 分页续跑、--verify-threshold 调整自动通过线（0-100）
+```
+
+可重复执行：已挂 verified 链接的作品会自动跳过，适合题库扩张后增量回填。
+未被匹配到的作品大概率在 bgm.tv 上无对应条目，不影响 VNDB 数据使用。
+
 ## 反向代理
 
 Nginx、Caddy 或面板代理必须同时支持 HTTP 和 WebSocket，并将 `/socket.io/` 原样转发到应用的 3000 端口。TLS 应在反向代理层终止。
