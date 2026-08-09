@@ -44,6 +44,27 @@ describe("selectImportantTags", () => {
       [],
       0,
     );
-    expect(tags.map((tag) => tag.name)).toEqual(["Comedy", "School", "Drama"]);
+    expect(tags.map((tag) => tag.name)).toEqual(["喜剧", "校园", "剧情"]);
+  });
+
+  it("unifies source aliases and omits technical, adult and overly detailed tags", () => {
+    const tags = selectImportantTags(
+      [
+        { name: "Sci-Fi", spoilerLevel: 0, score: 2.8, category: "cont" },
+        { name: "科幻", spoilerLevel: 0, score: 12, category: "cont" },
+        { name: "School", spoilerLevel: 0, score: 2.5, category: "cont" },
+        {
+          name: "Big Breast Sizes Heroine",
+          spoilerLevel: 0,
+          score: 3,
+          category: "cont",
+        },
+        { name: "Sexual Content", spoilerLevel: 0, score: 3, category: "ero" },
+        { name: "ADV", spoilerLevel: 0, score: 3, category: "tech" },
+      ],
+      [],
+      0,
+    );
+    expect(tags.map((tag) => tag.name)).toEqual(["科幻", "校园"]);
   });
 });

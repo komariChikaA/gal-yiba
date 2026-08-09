@@ -61,6 +61,7 @@ export interface Provenance {
 }
 
 export interface VisualNovelTag {
+  id?: string;
   name: string;
   spoilerLevel: 0 | 1 | 2;
   score?: number;
