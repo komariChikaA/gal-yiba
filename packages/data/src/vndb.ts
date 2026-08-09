@@ -27,6 +27,8 @@ const hairColorOrder = new Map(
   Object.values(hairColorByTraitId).map((color, index) => [color, index]),
 );
 
+export const VNDB_OTOME_TAG_ID = "g542";
+
 const visualNovelFields =
   "id,title,alttitle,aliases,titles{title,lang,main},released,developers{id,name},staff{id,name,original,lang,role},relations{id,relation,relation_official},length,languages,platforms,rating,votecount,popularity,tags{id,name,rating,spoiler,category}";
 
@@ -574,6 +576,7 @@ export class VndbClient {
       heroineHairColors: heroineHair?.colors ?? [],
       animeAdaptation,
       ageRating: releaseEvidence?.ageRating ?? "unknown",
+      isOtome: item.tags.some((tag) => tag.id === VNDB_OTOME_TAG_ID),
       seriesIds: [
         item.id,
         ...(item.relations ?? [])

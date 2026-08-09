@@ -4,7 +4,7 @@ import type { VisualNovel } from "@gal-yiba/shared";
  * 开发/演示用题库：仅在未配置 DATABASE_URL 的内存模式下返回，
  * 让本地可以直接开局测试单人/每日/房间玩法。
  */
-export const demoCatalog: VisualNovel[] = [
+const demoCatalogEntries: Array<Omit<VisualNovel, "isOtome">> = [
   {
     id: "10000000-0000-4000-8000-000000000001",
     title: "CLANNAD",
@@ -258,3 +258,8 @@ export const demoCatalog: VisualNovel[] = [
     provenance: {},
   },
 ];
+
+export const demoCatalog: VisualNovel[] = demoCatalogEntries.map((entry) => ({
+  ...entry,
+  isOtome: false,
+}));

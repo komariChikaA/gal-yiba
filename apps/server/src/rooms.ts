@@ -81,7 +81,10 @@ export interface ChatMessage {
   at: string;
 }
 
-interface MutableRoom extends Omit<RoomSnapshot, "players" | "round" | "scores"> {
+interface MutableRoom extends Omit<
+  RoomSnapshot,
+  "players" | "round" | "scores"
+> {
   players: Map<string, RoomPlayer>;
   round: MutableRound | null;
   scores: Map<string, number>;
@@ -135,6 +138,7 @@ export const defaultRules: GameRules = {
     excludeTags: [],
     tagMode: "all",
     allAgesOnly: false,
+    includeOtome: false,
     includeChina: false,
     includeWest: false,
     maxTagSpoilerLevel: 0,
@@ -417,7 +421,10 @@ export class RoomRegistry {
   }
 
   /** 中场倒计时结束：无论准备与否都开下一轮。 */
-  advanceIntermission(codeInput: string, now = new Date()): RoomSnapshot | null {
+  advanceIntermission(
+    codeInput: string,
+    now = new Date(),
+  ): RoomSnapshot | null {
     const room = this.rooms.get(codeInput.trim().toUpperCase());
     if (room?.phase !== "round_result") return null;
     this.startRound(room, { now });
@@ -460,7 +467,6 @@ export class RoomRegistry {
     }
     this.enterIntermission(room, now);
   }
-
 
   rematch(code: string, playerId: string): RoomSnapshot {
     const room = this.requireRoom(code);

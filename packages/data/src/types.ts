@@ -43,6 +43,8 @@ export interface SourceVisualNovel {
   heroineHairColors?: SourceHeroineHairColor[];
   animeAdaptation?: "none" | "announced" | "has_adaptation" | "unknown";
   ageRating?: "all_ages" | "restricted" | "unknown";
+  /** Whether the title is classified as an otome game by the source. */
+  isOtome?: boolean;
   seriesIds?: string[];
   tags: SourceTag[];
   raw: unknown;

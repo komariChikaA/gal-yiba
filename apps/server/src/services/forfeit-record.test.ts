@@ -23,6 +23,7 @@ function visualNovel(id: string): VisualNovel {
     bangumiVoteCount: 1200,
     animeAdaptation: null,
     ageRating: "all_ages",
+    isOtome: false,
     platforms: ["windows"],
     languages: ["ja"],
     tags: ["悬疑"],

@@ -32,6 +32,24 @@ interface BangumiRelatedSubject {
   relation: string;
 }
 
+const bangumiOtomeTags = new Set([
+  "乙女",
+  "乙女向",
+  "乙女游戏",
+  "乙女遊戲",
+  "乙女ゲー",
+  "女性向",
+  "女性向け",
+  "otome",
+  "otome game",
+]);
+
+function isBangumiOtome(tags: BangumiTag[]): boolean {
+  return tags.some((tag) =>
+    bangumiOtomeTags.has(tag.name.normalize("NFKC").trim().toLocaleLowerCase()),
+  );
+}
+
 export interface BangumiClientOptions {
   userAgent: string;
   accessToken?: string;
@@ -139,10 +157,7 @@ export class BangumiClient {
       `${this.baseUrl}/v0/subjects/${subjectId}`,
       { headers: this.headers },
     );
-    return this.normalize(
-      subject,
-      await this.loadAnimeAdaptation(subjectId),
-    );
+    return this.normalize(subject, await this.loadAnimeAdaptation(subjectId));
   }
 
   /** 原始条目转 SourceVisualNovel（动漫化未知，用于评分）。 */
@@ -204,6 +219,7 @@ export class BangumiClient {
       popularity: null,
       animeAdaptation,
       ageRating: item.nsfw ? "restricted" : "unknown",
+      isOtome: isBangumiOtome(item.tags),
       tags: item.tags.map((tag) => ({ name: tag.name, score: tag.count })),
       raw: item,
       fetchedAt: new Date().toISOString(),

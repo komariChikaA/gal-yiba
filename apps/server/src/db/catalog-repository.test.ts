@@ -210,6 +210,7 @@ describe("CatalogRepository", () => {
       vndbVoteCount: 3000,
       bangumiVoteCount: null,
       ageRating: "all_ages",
+      isOtome: false,
       platforms: ["PC", "PlayStation", "Nintendo Switch"],
       tags: ["悬疑", "剧情", "科幻"],
       tagDetails: [
@@ -220,6 +221,26 @@ describe("CatalogRepository", () => {
         { id: "g96", name: "Romance", spoilerLevel: 0, score: 1.9 },
       ],
     });
+  });
+
+  it("classifies otome games from the stable VNDB tag id", async () => {
+    const vndb = sourceRecord({
+      sourceId: "v-otome",
+      title: "Otome Example",
+      tags: [
+        {
+          id: "g542",
+          name: "Otome Game",
+          spoilerLevel: 0,
+          category: "tech",
+        },
+      ],
+    });
+    await repository.upsertSourceRecord(vndb);
+    await repository.createCanonicalFromSource(vndb);
+    const catalog = await repository.listVisualNovels();
+    expect(catalog[0]?.isOtome).toBe(true);
+    expect(catalog[0]?.tags).toContain("乙女");
   });
 
   it("lists canonicals still missing a verified Bangumi link", async () => {
@@ -271,7 +292,6 @@ describe("CatalogRepository", () => {
     const missing = await repository.listCanonicalsMissingBangumi(10, 0);
     expect(missing).toEqual([]);
   });
-
 });
 
 describe("sourceRecordHash", () => {

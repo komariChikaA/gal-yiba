@@ -67,4 +67,22 @@ describe("selectImportantTags", () => {
     );
     expect(tags.map((tag) => tag.name)).toEqual(["科幻", "校园"]);
   });
+
+  it("keeps the VNDB otome classification as a representative audience tag", () => {
+    const tags = selectImportantTags(
+      [
+        {
+          id: "g542",
+          name: "Otome Game",
+          spoilerLevel: 0,
+          score: 2.7,
+          category: "tech",
+        },
+        { name: "ADV", spoilerLevel: 0, score: 3, category: "tech" },
+      ],
+      [],
+      0,
+    );
+    expect(tags.map((tag) => tag.name)).toEqual(["乙女"]);
+  });
 });

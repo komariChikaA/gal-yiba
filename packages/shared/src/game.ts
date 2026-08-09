@@ -175,9 +175,7 @@ export function displayTitleForVisualNovel(visualNovel: VisualNovel): string {
 export type VisualNovelRegion = "japan" | "china" | "west";
 
 /** 区域判定：含日语 → 日系；全部语言为中文 → 国旮；否则 → 欧美。 */
-export function visualNovelRegion(
-  visualNovel: VisualNovel,
-): VisualNovelRegion {
+export function visualNovelRegion(visualNovel: VisualNovel): VisualNovelRegion {
   const languages = (visualNovel.languages ?? []).map((language) =>
     language.toLowerCase(),
   );
@@ -203,6 +201,7 @@ export function filterAnswerPool(
       const region = visualNovelRegion(visualNovel);
       if (region === "china" && !rules.pool.includeChina) return false;
       if (region === "west" && !rules.pool.includeWest) return false;
+      if (visualNovel.isOtome && !rules.pool.includeOtome) return false;
       return (
         fameTierPoolIncludes(catalog, visualNovel, rules.pool.fameTier) &&
         (!rules.pool.allAgesOnly || visualNovel.ageRating === "all_ages")
@@ -234,7 +233,11 @@ export function createGameSession(
   const answerOptions: { now?: Date; id?: string } = {};
   if (options.now !== undefined) answerOptions.now = options.now;
   if (options.id !== undefined) answerOptions.id = options.id;
-  return createGameSessionForAnswer(pool[index] as VisualNovel, rules, answerOptions);
+  return createGameSessionForAnswer(
+    pool[index] as VisualNovel,
+    rules,
+    answerOptions,
+  );
 }
 
 export function createGameSessionForAnswer(
