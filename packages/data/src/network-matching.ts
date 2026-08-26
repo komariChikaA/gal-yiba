@@ -55,11 +55,11 @@ export class NetworkMappingAligner {
     const networkTitles = extractNetworkTitles(collected);
     if (networkTitles.length === 0) return null;
 
-    // 将网络标题喂给 Bangumi 搜索，取最相关候选
+    // 将网络标题喂给 Bangumi 搜索，取最相关候选（分页扩大）
     let best: NetworkAlignmentResult | null = null;
-    for (const nt of networkTitles.slice(0, 4)) {
+    for (const nt of networkTitles.slice(0, 6)) {
       try {
-        const raw = await this.bangumi.searchRaw(nt, 8);
+        const raw = await this.bangumi.searchRawPaged(nt, 20, 2);
         for (const subject of raw) {
           const candidate = this.bangumi.normalizeRaw(subject);
           const scored = scoreWithNetworkTitles(vndbRecord, candidate, networkTitles);

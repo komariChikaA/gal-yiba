@@ -44,13 +44,20 @@ try {
 
   const limit = Number(argument("limit", "100"));
   const offset = Number(argument("offset", "0"));
-  const verifyThreshold = Number(argument("verify-threshold", "85"));
-  const delayMs = Number(argument("delay-ms", "250"));
+  const verifyThreshold = Number(argument("verify-threshold", "70"));
+  const delayMs = Number(argument("delay-ms", "220"));
   const withNetwork = process.argv.includes("--with-network") || process.env.WEB_SEARCH_ENABLED === "true";
   const webSearch = withNetwork ? createWebSearchProviderFromEnv() : null;
   const networkAligner = withNetwork
     ? new NetworkMappingAligner(webSearch, client)
     : null;
+  if (!client.isAuthenticated) {
+    console.warn(
+      "[warn] BANGUMI_ACCESS_TOKEN 未配置：nsfw/限制级条目将被 Bangumi 过滤，召回率将显著低于 500 目标；请在 .env 配置 BANGUMI_ACCESS_TOKEN 后重跑  --verify-threshold=75",
+    );
+  } else {
+    console.log("[info] Bangumi 已认证，将包含 nsfw 条目，适合 500+ 对齐");
+  }
 
   let processed = 0;
   let linked = 0;
@@ -63,10 +70,12 @@ try {
       item.displayTitle,
       item.vndbRecord.title,
       ...(item.vndbRecord.alternativeTitles ?? []),
+      // 额外加入 VNDB titles 的日文原名（若与 title 不同）已在 alternativeTitles 中
     ]
       .map((term) => term?.trim())
-      .filter((term): term is string => Boolean(term))
-      .filter((term, index, all) => all.indexOf(term) === index);
+      .filter((term): term is string => Boolean(term) && term.length >= 2)
+      .filter((term, index, all) => all.indexOf(term) === index)
+      .slice(0, 6);
 
     let best: {
       candidate: SourceVisualNovel;
@@ -95,10 +104,10 @@ try {
       }
     }
 
-    // 本地 Bangumi 搜索路径（与网络结果取优）
-    for (const term of terms.slice(0, 2)) {
+    // 本地 Bangumi 搜索路径（与网络结果取优）——扩大召回：每词 20 条 + 分页，最多 6 词
+    for (const term of terms) {
       try {
-        const raw = await client.searchRaw(term, 10);
+        const raw = await client.searchRawPaged(term, 20, 2);
         await delay(delayMs);
         for (const subject of raw) {
           const candidate = client.normalizeRaw(subject);

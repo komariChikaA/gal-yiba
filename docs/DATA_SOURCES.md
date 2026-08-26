@@ -39,9 +39,11 @@ source_records(bangumi:237) --/
 为解决纯别名重叠导致的漏配（日/中/英意译名、别名库未收录常用译名、年份/平台缺失），系统保留两条互补路径：
 
 1. **本地别名路径**（默认）：主标题和全部别名先统一宽度、大小写与标点后建立可检索键（`packages/data/src/matching.ts:5` 的 `normalizeTitle` / `source_records.title_keys`），再结合日期和平台计算置信度（`scoreSourceMatch`）。歧义项进入 `source_links.link_status='suggested'` 人工审核。
-2. **网络搜索强制对齐路径**（可选，需 `WEB_SEARCH_ENABLED=true` + `WEB_SEARCH_API_URL`）：对每个 `canonical_visual_novels` 中已验证 VNDB 但缺 Bangumi 的作品（`CatalogRepository.listCanonicalsMissingBangumi()`），用标题/别名/开发商主动发起外部搜索（`packages/data/src/web-search.ts:18` 的 `WebSearchProvider` / `NetworkMappingAligner`），取搜索标题喂给 `BangumiClient.searchRaw` 并用 `scoreWithNetworkTitles` 二次打分；达到阈值（默认 85）则直接 `attachBangumiVerified`，否则落入 `suggested`。证据写入 `source_links.evidence.search`，失败不阻断主流程。
+2. **网络搜索强制对齐路径**（可选，需 `WEB_SEARCH_ENABLED=true` + `WEB_SEARCH_API_URL`）：对每个 `canonical_visual_novels` 中已验证 VNDB 但缺 Bangumi 的作品（`CatalogRepository.listCanonicalsMissingBangumi()`），用标题/别名/开发商主动发起外部搜索（`packages/data/src/web-search.ts:18` 的 `WebSearchProvider` / `NetworkMappingAligner`），取搜索标题喂给 `BangumiClient.searchRawPaged`（每词 `20×2` 页聚合）并用 `scoreWithNetworkTitles` 二次打分；达到阈值（默认 `70`，原 `85`）则直接 `attachBangumiVerified`，否则落入 `suggested`。证据写入 `source_links.evidence.search`，失败不阻断主流程。
 
-CLI 开关：`pnpm --filter @gal-yiba/server sync:bangumi-backfill --with-network`、`mappings:rebuild --with-network`；`CatalogSyncService.rebuildBangumiSuggestions({ withNetwork, webSearch, bangumiClient })` 与 `backfillMissingBangumiWithNetwork` 均支持注入 mock 便于测试。
+   **500+ 目标与认证完整性**：`docs/COMPARISON_RULES.md:40` 的 `9` 部是精确标题 `65` 分阈值下的历史快照；要拉到 `500+` 必须：① 使用 `packages/data/src/matching.ts:35` 的模糊相似度（bigram Dice + 编辑距离，`titleSimilarity` 对全部别名求最大值，`0.88/0.72/0.55` 分档给 `55/40/25` 分，配合年份/平台/开发商综合，替代旧的 `Math.min(25)` 一刀切）+ `2` 的分页扩大召回（每作品最多 `6` 个别名各 `40` 条）；② **配置 `BANGUMI_ACCESS_TOKEN`** — 未登录时 `api.bgm.tv` 会过滤 `nsfw` 条目（大量 Gal 为限制级），`BangumiClient.isAuthenticated` 为 `false` 时回填会告警且召回显著偏低（`apps/server/src/cli/sync-bangumi-backfill.ts:55`）。
+
+CLI 开关：`BANGUMI_ACCESS_TOKEN=xxx BANGUMI_USER_AGENT="GalYiBa/0.1 (contact)" pnpm --filter @gal-yiba/server sync:bangumi-backfill --limit=1000 --verify-threshold=70 --delay-ms=220 --with-network`、`mappings:rebuild --with-network`；`CatalogSyncService.backfillMissingBangumiWithNetwork(aligner, limit, offset, 70)` 与 `searchRawPaged` 均支持注入 mock，已有 `packages/data/src/matching-scale.test.ts:12` 的 `600` 对模拟（`500` 可配对）验证 `verified+suggested >=500`。
 
 VNDB 与 Bangumi 的评分和票数分别保留，不做平均。每个规范化字段记录 `source`、`source_id`、`synced_at` 与转换版本。
 

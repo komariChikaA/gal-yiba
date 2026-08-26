@@ -156,7 +156,7 @@ export class CatalogSyncService {
     aligner: NetworkMappingAligner,
     limit = 100,
     offset = 0,
-    verifyThreshold = 85,
+    verifyThreshold = 70,
   ): Promise<{ processed: number; linked: number; suggested: number; skipped: number }> {
     const batch = await this.repository.listCanonicalsMissingBangumi(limit, offset);
     let processed = 0;

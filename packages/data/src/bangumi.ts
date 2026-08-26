@@ -133,10 +133,12 @@ export class BangumiClient {
   }
 
   /** 轻量搜索：返回原始条目，不逐条深取动漫化关系（回填场景用）。 */
-  async searchRaw(keyword: string, limit = 10): Promise<BangumiSubject[]> {
+  async searchRaw(keyword: string, limit = 10, offset = 0): Promise<BangumiSubject[]> {
+    const safeLimit = Math.min(50, Math.max(1, limit));
+    const safeOffset = Math.max(0, offset);
     const response = await requestJson<BangumiSearchResponse>(
       this.fetcher,
-      `${this.baseUrl}/v0/search/subjects?limit=${Math.min(50, Math.max(1, limit))}&offset=0`,
+      `${this.baseUrl}/v0/search/subjects?limit=${safeLimit}&offset=${safeOffset}`,
       {
         method: "POST",
         headers: this.headers,
@@ -148,6 +150,25 @@ export class BangumiClient {
       },
     );
     return response.data;
+  }
+
+  /** 分页搜索：用于扩大召回，取多页聚合 */
+  async searchRawPaged(keyword: string, limitPerPage = 20, maxPages = 2): Promise<BangumiSubject[]> {
+    const seen = new Map<number, BangumiSubject>();
+    for (let page = 0; page < maxPages; page++) {
+      const offset = page * limitPerPage;
+      const batch = await this.searchRaw(keyword, limitPerPage, offset);
+      for (const s of batch) seen.set(s.id, s);
+      if (batch.length < limitPerPage) break;
+      // 轻微限速
+      if (page + 1 < maxPages) await new Promise((r) => setTimeout(r, 180));
+    }
+    return [...seen.values()];
+  }
+
+  /** 是否已配置认证（未登录时 nsfw 条目会被过滤，召回受限） */
+  get isAuthenticated(): boolean {
+    return this.headers.authorization != null;
   }
 
   /** 详情：取条目完整字段（含动漫化关系判定）。 */
