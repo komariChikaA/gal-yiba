@@ -5,6 +5,10 @@ import {
   migrateDatabase,
 } from "../db/index.js";
 import { CatalogSyncService } from "../services/catalog-sync.js";
+import {
+  BangumiClient,
+  createWebSearchProviderFromEnv,
+} from "@gal-yiba/data";
 
 function argument(name: string): string | undefined {
   const prefix = `--${name}=`;
@@ -34,9 +38,24 @@ try {
     const limit = Number(argument("limit") ?? 5_000);
     if (!Number.isInteger(limit) || limit < 1 || limit > 20_000)
       throw new Error("INVALID_LIMIT");
-    const summary = await new CatalogSyncService(
-      pool,
-    ).rebuildBangumiSuggestions(limit);
+    const withNetwork =
+      process.argv.includes("--with-network") ||
+      process.env.WEB_SEARCH_ENABLED === "true";
+    let summary;
+    if (withNetwork) {
+      const userAgent =
+        process.env.BANGUMI_USER_AGENT ?? "gal-yiba/0.1 (network-rebuild)";
+      const bangumi = new BangumiClient({ userAgent });
+      const webSearch = createWebSearchProviderFromEnv();
+      summary = await new CatalogSyncService(pool).rebuildBangumiSuggestions(
+        limit,
+        { withNetwork: true, webSearch, bangumiClient: bangumi },
+      );
+    } else {
+      summary = await new CatalogSyncService(pool).rebuildBangumiSuggestions(
+        limit,
+      );
+    }
     console.log(JSON.stringify(summary));
   } else {
     const source = argument("source");

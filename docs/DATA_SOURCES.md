@@ -34,7 +34,26 @@ source_records(vndb:v17) ----\
 source_records(bangumi:237) --/
 ```
 
-自动映射只产生“候选”：主标题和全部别名先统一宽度、大小写与标点后建立可检索键，再结合日期和平台计算置信度；歧义项进入人工审核。VNDB 与 Bangumi 的评分和票数分别保留，不做平均。每个规范化字段记录 `source`、`source_id`、`synced_at` 与转换版本。
+### 双路径映射：本地别名 + 网络搜索强制对齐
+
+为解决纯别名重叠导致的漏配（日/中/英意译名、别名库未收录常用译名、年份/平台缺失），系统保留两条互补路径：
+
+1. **本地别名路径**（默认）：主标题和全部别名先统一宽度、大小写与标点后建立可检索键（`packages/data/src/matching.ts:5` 的 `normalizeTitle` / `source_records.title_keys`），再结合日期和平台计算置信度（`scoreSourceMatch`）。歧义项进入 `source_links.link_status='suggested'` 人工审核。
+2. **网络搜索强制对齐路径**（可选，需 `WEB_SEARCH_ENABLED=true` + `WEB_SEARCH_API_URL`）：对每个 `canonical_visual_novels` 中已验证 VNDB 但缺 Bangumi 的作品（`CatalogRepository.listCanonicalsMissingBangumi()`），用标题/别名/开发商主动发起外部搜索（`packages/data/src/web-search.ts:18` 的 `WebSearchProvider` / `NetworkMappingAligner`），取搜索标题喂给 `BangumiClient.searchRaw` 并用 `scoreWithNetworkTitles` 二次打分；达到阈值（默认 85）则直接 `attachBangumiVerified`，否则落入 `suggested`。证据写入 `source_links.evidence.search`，失败不阻断主流程。
+
+CLI 开关：`pnpm --filter @gal-yiba/server sync:bangumi-backfill --with-network`、`mappings:rebuild --with-network`；`CatalogSyncService.rebuildBangumiSuggestions({ withNetwork, webSearch, bangumiClient })` 与 `backfillMissingBangumiWithNetwork` 均支持注入 mock 便于测试。
+
+VNDB 与 Bangumi 的评分和票数分别保留，不做平均。每个规范化字段记录 `source`、`source_id`、`synced_at` 与转换版本。
+
+### 网络检索强制分类（乙游 / 国产 / 欧美）
+
+本地标签存在系统性缺漏：`g542` 与 `bangumiOtomeTags` 覆盖不全、`languages` 字段缺失导致 `visualNovelRegion()` 误判。因此新增富化层：
+
+- **乙游**：`packages/shared/src/enrichment.ts:58` 的 `classifyOtomeFromText` + `packages/data/src/catalog-enrichment.ts:33` 的 `CatalogEnricher.enrich()` 对标题/开发商发起搜索，命中“乙女/女性向/otome”等多证据时以 `confidence>=60` 覆盖 `isOtome`；已打 `g542` 的作品不被网络否定覆盖。
+- **国产/欧美**：`classifyRegionFromText` 命中“国产/中国制作/中文原创”或“欧美/western visual novel”等证据时，以语言缺失时 `confidence>=60`、语言存在时 `confidence>=75` 覆盖 `languages`（`zh`/`en`/`ja`），从而修正 `visualNovelRegion()` 与 `filterAnswerPool()` 的 `includeChina/includeWest` 过滤。无法判定时维持 `japan` 默认。
+- 持久化：`pnpm --filter @gal-yiba/server enrich:catalog [--dry-run] [--with-network]` 遍历 `source_records`，对命中项 `upsertSourceRecord(applyEnrichmentToRecord)` 并 `appendEnrichmentEvidence` 到 `source_links.evidence.enrichment`，供审计与人工复核；每次猜测不实时联网（`PRODUCT_SPEC` 约束）。
+
+详见 `packages/shared/src/enrichment.ts`、`packages/data/src/web-search.ts`、`packages/data/src/network-matching.ts`、`apps/server/src/cli/enrich-catalog.ts`。
 
 ## 图片与文本
 

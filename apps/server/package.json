@@ -17,6 +17,7 @@
     "mappings:rebuild": "tsx src/cli/review-mappings.ts rebuild",
     "mappings:approve": "tsx src/cli/review-mappings.ts approve",
     "mappings:reject": "tsx src/cli/review-mappings.ts reject",
+    "enrich:catalog": "tsx src/cli/enrich-catalog.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },

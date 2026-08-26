@@ -15,6 +15,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@gal-yiba/shared": "workspace:*"
+  },
   "devDependencies": {
     "@types/node": "^24.3.0"
   }

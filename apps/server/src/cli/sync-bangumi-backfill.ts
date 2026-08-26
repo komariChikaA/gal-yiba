@@ -1,7 +1,10 @@
 import "dotenv/config";
 import {
   BangumiClient,
+  createWebSearchProviderFromEnv,
+  NetworkMappingAligner,
   scoreSourceMatch,
+  scoreWithNetworkTitles,
   type SourceVisualNovel,
 } from "@gal-yiba/data";
 import {
@@ -43,6 +46,11 @@ try {
   const offset = Number(argument("offset", "0"));
   const verifyThreshold = Number(argument("verify-threshold", "85"));
   const delayMs = Number(argument("delay-ms", "250"));
+  const withNetwork = process.argv.includes("--with-network") || process.env.WEB_SEARCH_ENABLED === "true";
+  const webSearch = withNetwork ? createWebSearchProviderFromEnv() : null;
+  const networkAligner = withNetwork
+    ? new NetworkMappingAligner(webSearch, client)
+    : null;
 
   let processed = 0;
   let linked = 0;
@@ -67,6 +75,27 @@ try {
       evidence: object;
     } | null = null;
 
+    // 网络搜索强制对齐路径：先试网络，成功则直接用其 evidence/confidence
+    if (networkAligner) {
+      try {
+        const networkResult = await networkAligner.align(item.vndbRecord);
+        if (networkResult) {
+          best = {
+            candidate: networkResult.candidate,
+            confidence: networkResult.confidence,
+            decision: networkResult.decision,
+            evidence: networkResult.evidence as unknown as object,
+          };
+        }
+      } catch (error) {
+        console.error(
+          `network align failed for "${item.displayTitle}":`,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    }
+
+    // 本地 Bangumi 搜索路径（与网络结果取优）
     for (const term of terms.slice(0, 2)) {
       try {
         const raw = await client.searchRaw(term, 10);
@@ -74,12 +103,30 @@ try {
         for (const subject of raw) {
           const candidate = client.normalizeRaw(subject);
           const score = scoreSourceMatch(candidate, item.vndbRecord);
-          if (!best || score.confidence > best.confidence) {
+          // 若开启网络，额外计算网络提升分数并取更高者
+          let finalScore = score;
+          let finalEvidence: object = score.evidence as unknown as object;
+          if (webSearch && best?.evidence && (best.evidence as Record<string, unknown>).searchResults) {
+            const networkTitles = ((best.evidence as Record<string, unknown>).networkTitles as string[]) ?? [];
+            if (networkTitles.length > 0) {
+              const boosted = scoreWithNetworkTitles(candidate, item.vndbRecord, networkTitles);
+              if (boosted.confidence > score.confidence) {
+                finalScore = { confidence: boosted.confidence, decision: boosted.decision, evidence: boosted.baseEvidence } as typeof score;
+                finalEvidence = {
+                  ...boosted.baseEvidence,
+                  networkTitles,
+                  networkBoosted: true,
+                  baseConfidence: boosted.baseConfidence,
+                };
+              }
+            }
+          }
+          if (!best || finalScore.confidence > best.confidence) {
             best = {
               candidate,
-              confidence: score.confidence,
-              decision: score.decision,
-              evidence: score.evidence,
+              confidence: finalScore.confidence,
+              decision: finalScore.decision,
+              evidence: finalEvidence,
             };
           }
         }

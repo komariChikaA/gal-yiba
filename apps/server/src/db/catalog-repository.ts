@@ -251,16 +251,47 @@ export class CatalogRepository {
       normalized: SourceVisualNovel;
     }>(
       `SELECT sr.normalized
-       FROM source_records sr
-       LEFT JOIN source_links sl
-         ON sl.source = sr.source AND sl.source_id = sr.source_id
-       WHERE sr.source = $1
-         AND (sl.source_id IS NULL OR sl.link_status = 'suggested')
-       ORDER BY sr.updated_at ASC, sr.source_id ASC
-       LIMIT $2`,
+        FROM source_records sr
+        LEFT JOIN source_links sl
+          ON sl.source = sr.source AND sl.source_id = sr.source_id
+        WHERE sr.source = $1
+          AND (sl.source_id IS NULL OR sl.link_status = 'suggested')
+        ORDER BY sr.updated_at ASC, sr.source_id ASC
+        LIMIT $2`,
       [source, Math.max(1, Math.min(20_000, limit))],
     );
     return result.rows.map((row) => row.normalized);
+  }
+
+  async listSourceRecordsForEnrichment(
+    source: SourceVisualNovel["source"],
+    limit = 100,
+    offset = 0,
+  ): Promise<SourceVisualNovel[]> {
+    const result = await this.database.query<{
+      normalized: SourceVisualNovel;
+    }>(
+      `SELECT normalized FROM source_records
+        WHERE source = $1
+        ORDER BY updated_at ASC, source_id ASC
+        LIMIT $2 OFFSET $3`,
+      [source, Math.max(1, Math.min(5_000, limit)), Math.max(0, offset)],
+    );
+    return result.rows.map((row) => row.normalized);
+  }
+
+  async appendEnrichmentEvidence(
+    canonicalId: string,
+    source: SourceVisualNovel["source"],
+    sourceId: string,
+    evidence: object,
+  ): Promise<void> {
+    await this.database.query(
+      `UPDATE source_links
+        SET evidence = (evidence || $4::jsonb)
+        WHERE canonical_id = $1 AND source = $2 AND source_id = $3`,
+      [canonicalId, source, sourceId, JSON.stringify({ enrichment: evidence })],
+    );
   }
 
   async listSourceIds(
