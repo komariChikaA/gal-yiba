@@ -9,7 +9,7 @@ services:
       DATABASE_URL: postgresql://gal_yiba:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/gal_yiba
       REDIS_URL: redis://redis:6379
       VNDB_API_BASE: https://api.vndb.org/kana
-      BANGUMI_API_BASE: https://api.bgm.tv
+      BANGUMI_API_BASE: https://api.bangumi.tv
       BANGUMI_USER_AGENT: ${BANGUMI_USER_AGENT:?set BANGUMI_USER_AGENT}
       BANGUMI_ACCESS_TOKEN: ${BANGUMI_ACCESS_TOKEN:-}
     ports:

@@ -65,7 +65,7 @@ export class BangumiClient {
   constructor(options: BangumiClientOptions) {
     if (!options.userAgent.trim())
       throw new Error("BANGUMI_USER_AGENT_REQUIRED");
-    this.baseUrl = options.baseUrl ?? "https://api.bgm.tv";
+    this.baseUrl = options.baseUrl ?? "https://api.bangumi.tv";
     this.fetcher = options.fetcher ?? fetch;
     this.headers = {
       "content-type": "application/json",
