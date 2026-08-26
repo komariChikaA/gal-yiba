@@ -171,6 +171,44 @@ export class BangumiClient {
     return this.headers.authorization != null;
   }
 
+  /** 浏览全量游戏：GET /v0/subjects?type=4 分页，用于补齐全部 Bangumi VN */
+  async browseGames(
+    offset = 0,
+    limit = 50,
+  ): Promise<PagedResult<SourceVisualNovel>> {
+    const safeLimit = Math.min(100, Math.max(1, limit));
+    const safeOffset = Math.max(0, offset);
+    const response = await requestJson<BangumiSearchResponse>(
+      this.fetcher,
+      `${this.baseUrl}/v0/subjects?type=4&limit=${safeLimit}&offset=${safeOffset}`,
+      { headers: this.headers },
+    );
+    const nextOffset = response.offset + response.data.length;
+    const items: SourceVisualNovel[] = [];
+    for (const item of response.data) {
+      items.push(this.normalize(item, await this.loadAnimeAdaptation(item.id)));
+    }
+    return {
+      items,
+      hasMore: nextOffset < response.total,
+      nextCursor: nextOffset < response.total ? String(nextOffset) : null,
+    };
+  }
+
+  async browseRaw(
+    offset = 0,
+    limit = 100,
+  ): Promise<BangumiSubject[]> {
+    const safeLimit = Math.min(100, Math.max(1, limit));
+    const safeOffset = Math.max(0, offset);
+    const response = await requestJson<BangumiSearchResponse>(
+      this.fetcher,
+      `${this.baseUrl}/v0/subjects?type=4&limit=${safeLimit}&offset=${safeOffset}`,
+      { headers: this.headers },
+    );
+    return response.data;
+  }
+
   /** 详情：取条目完整字段（含动漫化关系判定）。 */
   async subjectDetail(subjectId: number): Promise<SourceVisualNovel> {
     const subject = await requestJson<BangumiSubject>(
