@@ -122,6 +122,27 @@ export interface GameRules {
   pool: PoolFilter;
 }
 
+export const defaultGameRules: GameRules = {
+  version: 1,
+  mode: "race",
+  maxGuesses: 8,
+  roundTimeSeconds: 300,
+  bestOf: 1,
+  replayTiedRounds: false,
+  comparisonKeys: [...defaultComparisonKeys],
+  pool: {
+    includeTags: [],
+    excludeTags: [],
+    tagMode: "all",
+    allAgesOnly: false,
+    includeOtome: false,
+    includeChina: false,
+    includeWest: false,
+    maxTagSpoilerLevel: 0,
+    fameTier: "veteran",
+  },
+};
+
 export type ComparisonStatus = "exact" | "partial" | "miss" | "unknown";
 export type ComparisonDirection = "higher" | "lower";
 export type ComparisonHint = "more" | "fewer" | "same_family";

@@ -2,7 +2,7 @@ import { randomInt, randomUUID } from "node:crypto";
 import {
   comparisonKeys,
   createGameSession,
-  defaultComparisonKeys,
+  defaultGameRules,
   publicGameSession,
   submitGuess,
   type GameRules,
@@ -146,26 +146,7 @@ export interface PlayerSession {
   reconnectToken: string;
 }
 
-export const defaultRules: GameRules = {
-  version: 1,
-  mode: "race",
-  maxGuesses: 8,
-  roundTimeSeconds: 300,
-  bestOf: 1,
-  replayTiedRounds: false,
-  comparisonKeys: [...defaultComparisonKeys],
-  pool: {
-    includeTags: [],
-    excludeTags: [],
-    tagMode: "all",
-    allAgesOnly: false,
-    includeOtome: false,
-    includeChina: false,
-    includeWest: false,
-    maxTagSpoilerLevel: 0,
-    fameTier: "veteran",
-  },
-};
+export const defaultRules: GameRules = defaultGameRules;
 
 function createRoomCode(): string {
   return Array.from(

@@ -1,8 +1,7 @@
-import type { VisualNovel } from "@gal-yiba/shared";
+import type { VisualNovel } from "./domain.js";
 
 /**
- * 开发/演示用题库：仅在未配置 DATABASE_URL 的内存模式下返回，
- * 让本地可以直接开局测试单人/每日/房间玩法。
+ * 内置演示题库：无数据库时的服务端内存模式，以及 GitHub Pages 静态站使用。
  */
 const demoCatalogEntries: Array<Omit<VisualNovel, "isOtome">> = [
   {

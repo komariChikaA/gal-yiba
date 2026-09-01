@@ -51,6 +51,9 @@ pnpm dev
 
 默认地址：前端 `http://localhost:5173`，后端 `http://localhost:3000`。
 
+临时静态站（无服务器、仅单人/每日）会发布到 GitHub Pages：
+[`https://komariChikaA.github.io/gal-yiba/`](https://komariChikaA.github.io/gal-yiba/)。仓库 Settings → Pages 选择 GitHub Actions 后，推送到 `main` 即可更新。
+
 完整检查：
 
 ```bash

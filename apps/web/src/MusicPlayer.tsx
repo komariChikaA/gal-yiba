@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { formatTime, playlist } from "./playlist";
+import { publicAsset } from "./config";
 
 const VOLUME_KEY = "gal-yiba-player-volume";
 const FADE_STEP_MS = 30;
@@ -129,7 +130,7 @@ export function MusicPlayer() {
     <div className={`music-player ${open ? "open" : ""}`}>
       <audio
         ref={audioRef}
-        src={track.file}
+        src={publicAsset(track.file)}
         preload="metadata"
         onTimeUpdate={(event) =>
           setCurrentTime(event.currentTarget.currentTime)
