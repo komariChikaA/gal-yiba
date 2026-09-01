@@ -33,10 +33,14 @@ import { DailyRegistry } from "./services/daily.js";
 import { MatchRecorder } from "./services/match-recorder.js";
 import { searchCatalog } from "./services/catalog-search.js";
 import { CatalogSyncService } from "./services/catalog-sync.js";
-import { demoCatalog } from "./demo-catalog.js";
+import { demoCatalog } from "@gal-yiba/shared";
 import { MatchmakingPool } from "./matchmaking.js";
 const port = Number(process.env.PORT ?? 3000);
-const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
+const webOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:5173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const webOrigin = webOrigins.length === 1 ? webOrigins[0]! : webOrigins;
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {

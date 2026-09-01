@@ -6,3 +6,4 @@ export * from "./game.js";
 export * from "./identity.js";
 export * from "./ranking.js";
 export * from "./enrichment.js";
+export * from "./demo-catalog.js";

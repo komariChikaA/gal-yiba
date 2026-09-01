@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { io } from "socket.io-client";
 import { MusicPlayer } from "./MusicPlayer";
+import {
+  audioSrc,
+  backendFetch,
+  emit,
+  isConnected,
+  isStaticPlay,
+  off,
+  on,
+} from "./backend";
 import {
   defaultComparisonKeys,
   rankDefinitions,
@@ -29,7 +37,6 @@ import {
   resolvePlayerId,
   saveFeatureCode,
 } from "./identity";
-const socket = io({ autoConnect: true });
 
 const comparisonLabels: Record<ComparisonKey, string> = {
   developer: "开发会社",
@@ -306,7 +313,7 @@ export function App() {
       ? "night"
       : "day";
   });
-  const [connected, setConnected] = useState(socket.connected);
+  const [connected, setConnected] = useState(() => isConnected());
   const [realtimeStats, setRealtimeStats] = useState<RealtimeStats | null>(
     null,
   );
@@ -463,7 +470,7 @@ export function App() {
   ]);
 
   useEffect(() => {
-    void fetch("/api/catalog/fame-tiers")
+    void backendFetch("/api/catalog/fame-tiers")
       .then(
         (response) =>
           response.json() as Promise<{ counts: Record<FameTier, number> }>,
@@ -478,7 +485,7 @@ export function App() {
       return;
     }
     const controller = new AbortController();
-    void fetch("/api/matchmaking/stats", { signal: controller.signal })
+    void backendFetch("/api/matchmaking/stats", { signal: controller.signal })
       .then((response) => response.json() as Promise<MatchmakingStats>)
       .then(setMatchmakingStats)
       .catch((requestError: Error) => {
@@ -489,7 +496,7 @@ export function App() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(
+    void backendFetch(
       `/api/ranked/profile?featureCode=${encodeURIComponent(featureCode)}`,
       { signal: controller.signal },
     )
@@ -505,7 +512,7 @@ export function App() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch("/api/stats/realtime", { signal: controller.signal })
+    void backendFetch("/api/stats/realtime", { signal: controller.signal })
       .then((response) => response.json() as Promise<RealtimeStats>)
       .then(setRealtimeStats)
       .catch((requestError: Error) => {
@@ -522,7 +529,7 @@ export function App() {
       leaderboardMode === "ranked"
         ? "/api/leaderboard/ranked"
         : `/api/leaderboard${leaderboardMode === "all" ? "" : `?mode=${leaderboardMode}`}`;
-    void fetch(endpoint, { signal: controller.signal })
+    void backendFetch(endpoint, { signal: controller.signal })
       .then(
         (response) => response.json() as Promise<{ items: LeaderboardEntry[] }>,
       )
@@ -536,7 +543,7 @@ export function App() {
     setAdminBusy(true);
     setAdminError("");
     try {
-      const response = await fetch("/api/admin/mappings", {
+      const response = await backendFetch("/api/admin/mappings", {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
       const body = (await response.json()) as {
@@ -569,7 +576,7 @@ export function App() {
   ) {
     setAdminBusy(true);
     try {
-      const response = await fetch("/api/admin/mappings/decision", {
+      const response = await backendFetch("/api/admin/mappings/decision", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -607,7 +614,7 @@ export function App() {
     setAdminBusy(true);
     setAdminError("");
     try {
-      const response = await fetch("/api/admin/mappings/rebuild", {
+      const response = await backendFetch("/api/admin/mappings/rebuild", {
         method: "POST",
         headers: { Authorization: `Bearer ${adminToken}` },
       });
@@ -653,7 +660,7 @@ export function App() {
       if (!saved) return;
       try {
         const previous = JSON.parse(saved) as Session;
-        socket.emit(
+        emit(
           "room:reconnect",
           { code, reconnectToken: previous.reconnectToken },
           handleRoomResponse,
@@ -689,28 +696,28 @@ export function App() {
       setMatchmakingPosition(null);
       handleRoomResponse(response);
     };
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    socket.on("room:updated", onRoomUpdated);
-    socket.on("game:state", onGameState);
-    socket.on("presence:updated", onRealtimeStats);
-    socket.on("matchmaking:stats", onMatchmakingStats);
-    socket.on("matchmaking:position", onMatchmakingPosition);
-    socket.on("matchmaking:matched", onMatchmakingMatched);
+    on("connect", onConnect);
+    on("disconnect", onDisconnect);
+    on("room:updated", onRoomUpdated);
+    on("game:state", onGameState);
+    on("presence:updated", onRealtimeStats);
+    on("matchmaking:stats", onMatchmakingStats);
+    on("matchmaking:position", onMatchmakingPosition);
+    on("matchmaking:matched", onMatchmakingMatched);
 
-    socket.on("room:chat", (message: ChatMessage) =>
+    on("room:chat", (message: ChatMessage) =>
       setChatMessages((current) => [...current, message].slice(-100)),
     );
-    if (socket.connected) tryReconnect();
+    if (isConnected()) tryReconnect();
     return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.off("room:updated", onRoomUpdated);
-      socket.off("game:state", onGameState);
-      socket.off("presence:updated", onRealtimeStats);
-      socket.off("matchmaking:stats", onMatchmakingStats);
-      socket.off("matchmaking:position", onMatchmakingPosition);
-      socket.off("matchmaking:matched", onMatchmakingMatched);
+      off("connect", onConnect);
+      off("disconnect", onDisconnect);
+      off("room:updated", onRoomUpdated);
+      off("game:state", onGameState);
+      off("presence:updated", onRealtimeStats);
+      off("matchmaking:stats", onMatchmakingStats);
+      off("matchmaking:position", onMatchmakingPosition);
+      off("matchmaking:matched", onMatchmakingMatched);
     };
   }, []);
 
@@ -724,7 +731,7 @@ export function App() {
   useEffect(() => {
     if (!room || !canEditRules || room.phase !== "lobby") return;
     const controller = new AbortController();
-    void fetch(
+    void backendFetch(
       `/api/catalog/tags?maxSpoilerLevel=${room.rules.pool.maxTagSpoilerLevel}&allAgesOnly=${room.rules.pool.allAgesOnly}&includeOtome=${room.rules.pool.includeOtome}&fameTier=${room.rules.pool.fameTier}`,
       {
         signal: controller.signal,
@@ -763,7 +770,7 @@ export function App() {
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(
+        const response = await backendFetch(
           `/api/catalog/search?q=${encodeURIComponent(searchQuery.trim())}`,
           {
             signal: controller.signal,
@@ -859,7 +866,7 @@ export function App() {
   }
 
   function sendAudioMessage(blob: Blob) {
-    socket.emit(
+    emit(
       "room:chat-audio",
       { audio: blob, mimeType: blob.type },
       (response: { ok: boolean; error?: string }) => {
@@ -871,7 +878,7 @@ export function App() {
   function playChatAudio(audioId: string) {
     // 复用同一元素并保持引用，防止 Chrome 对未挂载音频做垃圾回收导致无声
     if (chatAudioRef.current) chatAudioRef.current.pause();
-    const audio = new Audio(`/api/chat-audio/${audioId}`);
+    const audio = new Audio(audioSrc(audioId));
     chatAudioRef.current = audio;
     audio.onerror = () => setError("语音播放失败");
     void audio.play().catch(() => setError("语音播放失败"));
@@ -892,7 +899,7 @@ export function App() {
       JSON.stringify(response.session),
     );
     localStorage.setItem("gal-yiba-last-room", response.room.code);
-    socket.emit(
+    emit(
       "room:chat-history",
       {},
       (historyResponse: { ok: boolean; messages?: ChatMessage[] }) => {
@@ -911,7 +918,7 @@ export function App() {
     const text = chatText.trim();
     if (!text) return;
     setChatText("");
-    socket.emit(
+    emit(
       "room:chat",
       { text },
       (response: { ok: boolean; error?: string }) => {
@@ -933,7 +940,7 @@ export function App() {
   }
 
   function createRoom() {
-    socket.emit(
+    emit(
       "room:create",
       {
         nickname: nickname.trim(),
@@ -956,7 +963,7 @@ export function App() {
       setError("段位与特征码绑定，请先输入至少 4 位特征码。");
       return;
     }
-    socket.emit(
+    emit(
       "matchmaking:join",
       {
         nickname: nickname.trim(),
@@ -984,7 +991,7 @@ export function App() {
   }
 
   function cancelMatchmaking() {
-    socket.emit(
+    emit(
       "matchmaking:cancel",
       {},
       (response: { ok: boolean; error?: string }) => {
@@ -998,7 +1005,7 @@ export function App() {
     );
   }
   function leaveRoom() {
-    socket.emit(
+    emit(
       "room:leave",
       {},
       (response: { ok: boolean; error?: string }) => {
@@ -1021,7 +1028,7 @@ export function App() {
   }
 
   function rematchRoom() {
-    socket.emit(
+    emit(
       "room:rematch",
       {},
       (response: { ok: boolean; error?: string }) => {
@@ -1032,7 +1039,7 @@ export function App() {
   }
 
   function joinRoom() {
-    socket.emit(
+    emit(
       "room:join",
       {
         nickname: nickname.trim(),
@@ -1058,7 +1065,7 @@ export function App() {
   }
 
   function saveRules(rules: GameRules) {
-    socket.emit(
+    emit(
       "room:set-rules",
       { rules },
       (response: { ok: boolean; error?: string }) => {
@@ -1113,7 +1120,7 @@ export function App() {
   }
 
   function toggleReady() {
-    socket.emit(
+    emit(
       "room:set-ready",
       { ready: !currentPlayer?.ready },
       (response: { ok: boolean; error?: string }) => {
@@ -1124,7 +1131,7 @@ export function App() {
   }
 
   function startGame() {
-    socket.emit(
+    emit(
       "room:start",
       {},
       (response: { ok: boolean; error?: string; game?: PublicGameSession }) => {
@@ -1142,7 +1149,7 @@ export function App() {
       const saved = localStorage.getItem("gal-yiba-daily-player");
       const headers: Record<string, string> = {};
       if (saved) headers["X-Daily-Player"] = saved;
-      const response = await fetch("/api/daily", { headers });
+      const response = await backendFetch("/api/daily", { headers });
       const body = (await response.json()) as {
         date: string;
         session: PublicGameSession;
@@ -1174,7 +1181,7 @@ export function App() {
     const token = daily?.playerToken;
     if (!token) return;
     try {
-      const response = await fetch("/api/daily/guess", {
+      const response = await backendFetch("/api/daily/guess", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1207,7 +1214,7 @@ export function App() {
     const headers: Record<string, string> = {};
     if (daily.playerToken) headers["X-Daily-Player"] = daily.playerToken;
     const controller = new AbortController();
-    void fetch("/api/daily", { headers, signal: controller.signal })
+    void backendFetch("/api/daily", { headers, signal: controller.signal })
       .then(
         (response) =>
           response.json() as Promise<{ session: PublicGameSession }>,
@@ -1226,7 +1233,7 @@ export function App() {
       void submitDailyGuess(item);
       return;
     }
-    socket.emit(
+    emit(
       "game:guess",
       { visualNovelId: item.id },
       (response: { ok: boolean; error?: string; game?: PublicGameSession }) => {
@@ -1286,7 +1293,11 @@ export function App() {
             {colorTheme === "day" ? "夜色" : "日光"}
           </button>
           <span className={`connection ${connected ? "online" : "offline"}`}>
-            {connected ? "联机服务已连接" : "正在重连"}
+            {isStaticPlay
+              ? "静态演示"
+              : connected
+                ? "联机服务已连接"
+                : "正在重连"}
           </span>
           <span
             className="live-stats"
@@ -1301,8 +1312,19 @@ export function App() {
 
       <main id="top">
         <aside className="test-notice" role="status">
-          <b>测试中</b>
-          <span>本网站正在测试中，每天凌晨有可能会不定时更新内容。</span>
+          {isStaticPlay ? (
+            <>
+              <b>GitHub Pages 临时站</b>
+              <span>
+                当前是无后端静态演示：内置 12 部作品，可玩单人房间和每日同题。联机房间、段位匹配和排行榜需要独立服务器。
+              </span>
+            </>
+          ) : (
+            <>
+              <b>测试中</b>
+              <span>本网站正在测试中，每天凌晨有可能会不定时更新内容。</span>
+            </>
+          )}
         </aside>
         {!activeGame && (
           <section className="hero">
