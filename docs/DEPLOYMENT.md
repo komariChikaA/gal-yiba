@@ -4,9 +4,9 @@
 
 联机对战仍然需要 Node 服务、PostgreSQL 与 Redis。GitHub Pages 只能托管前端，因此 Pages 构建会打开 `VITE_STATIC_PLAY=true`，用内置 12 部演示作品在浏览器里跑单人房间和每日同题。
 
-1. 仓库 Settings → Pages → Build and deployment → Source 选 **GitHub Actions**（第一次必须手动开一次；工作流也会尝试自动打开）。
-2. 合并本仓库的 Pages 工作流后访问 [`https://komariChikaA.github.io/gal-yiba/`](https://komariChikaA.github.io/gal-yiba/)。
-3. 工作流在 `.github/workflows/github-pages.yml`，会以子路径 `/gal-yiba/` 打包 `apps/web`。
+1. 打开 [仓库 Pages 设置](https://github.com/komariChikaA/gal-yiba/settings/pages)
+2. Build and deployment → Source 选 **GitHub Actions**
+3. 回到 Actions，对最近一次 `Deploy GitHub Pages` 点 **Re-run jobs**
 
 若以后要把这个静态前端接到真正的 API，设置 `VITE_API_BASE=https://你的域名` 并关闭 `VITE_STATIC_PLAY`，同时把 Pages 源加入服务器 `WEB_ORIGIN`（逗号分隔，例如 `https://你的域名,https://komariChikaA.github.io`）。
 

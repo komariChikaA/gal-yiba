@@ -36,12 +36,6 @@ jobs:
           VITE_STATIC_PLAY: "true"
       - name: Disable Jekyll
         run: touch apps/web/dist/.nojekyll
-      - name: Enable GitHub Pages if needed
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api --method POST "repos/${{ github.repository }}/pages" -f build_type=workflow
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/web/dist
