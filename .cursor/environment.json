@@ -1,6 +1,6 @@
 {
   "name": "Gal Yi Ba",
-  "install": "corepack enable && pnpm install --frozen-lockfile",
+  "install": "corepack enable && pnpm install --frozen-lockfile && pnpm --filter @gal-yiba/shared build && pnpm --filter @gal-yiba/data build",
   "terminals": [
     {
       "name": "dev",
