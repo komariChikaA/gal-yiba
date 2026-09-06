@@ -1,5 +1,8 @@
 # 旮一把 / Gal Yi Ba
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/komariChikaA/gal-yiba/actions/workflows/ci.yml/badge.svg)](https://github.com/komariChikaA/gal-yiba/actions/workflows/ci.yml)
+
 一个可自定义比较项、以 VNDB 与 Bangumi 为数据来源、支持在线房间对战的 Galgame 猜谜网站。
 
 项目目前处于可联机体验的第一阶段。GitHub 项目地址：[komariChikaA/gal-yiba](https://github.com/komariChikaA/gal-yiba)。生产服务器地址与凭据不写入仓库；部署时通过环境变量和反向代理配置域名。产品决策与数据边界见：
@@ -7,8 +10,10 @@
 - [产品范围](docs/PRODUCT_SPEC.md)
 - [系统架构](docs/ARCHITECTURE.md)
 - [数据来源与许可](docs/DATA_SOURCES.md)
+- [软件与数据许可证](docs/LICENSING.md)
 - [服务器部署](docs/DEPLOYMENT.md)
 - [第一阶段验收](docs/ACCEPTANCE.md)
+- [贡献指南](CONTRIBUTING.md)
 
 ## 已实现
 
@@ -70,4 +75,10 @@ Windows PowerShell 请先设置 `$env:SERVER_URL`，再运行同一条 `pnpm` �
 
 生产服务器可使用 `docker compose up -d --build`；部署前需按[部署指南](docs/DEPLOYMENT.md)配置数据库密码、域名和 Bangumi User-Agent。
 
-> 本项目公开发布于 [komariChikaA/gal-yiba](https://github.com/komariChikaA/gal-yiba)。软件许可证仍待确认；当前实现只参考交互和前后端分工，没有复制参考项目的 AGPL 源码。
+## 许可证
+
+软件源码以 [MIT License](LICENSE) 发布。贡献代码即按相同许可证授权，并请遵守 [行为准则](CODE_OF_CONDUCT.md)。
+
+题库数据仍受原平台约束：VNDB 为 ODbL / DbCL，Bangumi 遵循其开发者平台协议。站点页脚会给出 VNDB 署名。完整边界见 [`docs/LICENSING.md`](docs/LICENSING.md) 与 [`NOTICE`](NOTICE)。
+
+本实现只参考公开的交互和前后端分工，没有复制参考项目的 AGPL 源码。

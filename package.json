@@ -2,6 +2,8 @@
   "name": "gal-yiba",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "author": "The Gal Yi Ba Authors",
   "description": "A configurable visual-novel guessing game with online rooms.",
   "homepage": "https://github.com/komariChikaA/gal-yiba#readme",
   "repository": {

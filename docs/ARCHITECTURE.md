@@ -38,4 +38,4 @@ lobby -> countdown -> active -> round_result -> active / finished
 
 ## 参考项目使用原则
 
-`csgofriberg` 采用 React、Node、PostgreSQL、Redis 与 Socket.IO，房间快照、分布式锁、可恢复计时和战绩异步持久化值得借鉴。其源码为 AGPL-3.0；在许可证未确认前，本项目只借鉴公开架构思想，不复制源代码。
+`csgofriberg` 采用 React、Node、PostgreSQL、Redis 与 Socket.IO，房间快照、分布式锁、可恢复计时和战绩异步持久化值得借鉴。其源码为 AGPL-3.0；本项目以 MIT 独立实现，只借鉴公开架构思想，不复制其源代码。软件与数据许可边界见 [许可证说明](LICENSING.md)。

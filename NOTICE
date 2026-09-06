@@ -1,0 +1,46 @@
+Gal Yi Ba (旮一把)
+Copyright (c) 2026 The Gal Yi Ba Authors
+
+This software is licensed under the MIT License. See LICENSE.
+
+------------------------------------------------------------------------
+Third-party data (not covered by the MIT License)
+------------------------------------------------------------------------
+
+This project can download, store, and display structured metadata from
+third-party catalogs. Those datasets keep their original licenses and
+terms. Redistributing a populated database, or hosting a public instance,
+must follow the notices below in addition to the MIT License on the code.
+
+VNDB
+  Source: https://vndb.org/
+  Data license: Open Database License (ODbL) 1.0
+    https://opendatacommons.org/licenses/odbl/1-0/
+  Database contents: Database Contents License (DbCL) 1.0
+    https://opendatacommons.org/licenses/dbcl/1-0/
+  Policy: https://vndb.org/d17
+
+  Contains information from VNDB, which is made available here under
+  the Open Database License (ODbL).
+
+  Exceptions noted by VNDB still apply: anime-related data may be
+  CC BY-NC-SA 4.0 via AniDB; images and descriptions may have separate
+  copyrights. This project does not bundle VNDB images or descriptions.
+
+Bangumi (番组计划)
+  Source: https://bgm.tv/
+  Developer terms: https://bgm.tv/about/copyright
+
+  Bangumi allows applications built on its official API and public
+  archives, subject to its copyright statement and developer-platform
+  agreement. This project does not crawl Bangumi pages, does not collect
+  Bangumi user data, and does not redistribute Bangumi data as a
+  standalone dataset.
+
+------------------------------------------------------------------------
+Third-party software
+------------------------------------------------------------------------
+
+Runtime and build dependencies retain their own licenses (typically MIT,
+Apache-2.0, BSD, or ISC). See each package in pnpm-lock.yaml and the
+corresponding upstream repository.

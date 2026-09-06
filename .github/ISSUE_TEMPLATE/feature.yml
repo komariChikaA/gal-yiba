@@ -1,0 +1,28 @@
+name: 功能建议
+description: 新的比较项、模式、题库或文档改进
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么问题
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案
+      description: 交互、规则或数据边界上的具体改动。不必已有实现。
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 是否改变第一阶段产品范围
+      options:
+        - 否，只是现有范围内的增强
+        - 是，可能超出 docs/PRODUCT_SPEC.md
+      default: 0
+    validations:
+      required: true

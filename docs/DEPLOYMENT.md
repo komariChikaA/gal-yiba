@@ -128,6 +128,8 @@ docker compose logs --tail=100 app
 
 部署环境的 `.env` 权限应保持为 `600`，不得提交到 Git。
 
+公开站点页脚需保留 VNDB 的 ODbL 署名与 Bangumi 协议链接（见 [`App.tsx`](../apps/web/src/App.tsx) 页脚）。不要在部署时删掉这段声明；软件与数据许可边界见 [许可证说明](LICENSING.md)。
+
 ## 定时同步（批量调度）
 
 数据同步本身是 CLI（`sync-catalog`/`refresh-catalog`），服务器上用 cron 或 systemd timer 定期执行即可。
