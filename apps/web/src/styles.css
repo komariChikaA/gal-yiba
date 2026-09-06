@@ -1103,16 +1103,35 @@ footer {
   border-top: 1px solid #3a342f;
   display: flex;
   justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 24px;
   color: #726a63;
   font-size: 12px;
 }
 footer b {
   color: #d8cfc5;
+  flex-shrink: 0;
 }
 footer a {
   color: inherit;
   font-weight: 800;
   text-underline-offset: 3px;
+}
+.footer-copy {
+  text-align: right;
+  max-width: min(46rem, 100%);
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+.footer-legal {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.55;
+  font-weight: 500;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* Warm anime theme ------------------------------------------------------- */
@@ -1832,9 +1851,12 @@ footer b {
   footer {
     display: block;
   }
-  footer span {
+  footer span,
+  .footer-copy {
     display: block;
     margin-top: 6px;
+    text-align: left;
+    max-width: 100%;
   }
 }
 

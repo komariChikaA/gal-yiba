@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 许可证与数据边界
+    url: https://github.com/komariChikaA/gal-yiba/blob/main/docs/LICENSING.md
+    about: 软件是 MIT；VNDB / Bangumi 数据仍受原平台条款约束
+  - name: 部署问题
+    url: https://github.com/komariChikaA/gal-yiba/blob/main/docs/DEPLOYMENT.md
+    about: 先对照部署指南检查环境变量、数据库和反向代理

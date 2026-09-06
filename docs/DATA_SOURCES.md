@@ -1,10 +1,12 @@
 # 数据来源、同步与许可边界
 
+软件源码是 MIT，同步下来的条目数据不是。对外提供带题库的实例时，请同时遵守仓库根目录的 [`NOTICE`](../NOTICE) 与 [许可证说明](LICENSING.md)。
+
 ## VNDB
 
 - 使用官方 HTTPS API v2（Kana），不抓取网页。
 - API 面向非商业使用，当前公开限制为每 5 分钟 200 次请求及每分钟 1 秒执行时间；同步器必须限速、缓存、指数退避并处理 429。
-- VNDB 数据受其 Data License 约束。部署前必须加入可见署名，并确认派生数据库的 ODbL/DbCL 义务。
+- VNDB 数据受其 Data License 约束（数据库 [ODbL 1.0](https://opendatacommons.org/licenses/odbl/1-0/)，内容 [DbCL 1.0](https://opendatacommons.org/licenses/dbcl/1-0/)）。公开实例必须给出可见署名；站点页脚已包含 ODbL 要求的 Produced Work 声明。派生数据库仍需自行确认 share-alike 义务。
 - 计划使用：作品 ID、标题/别名、首发信息、语言、平台、时长、评分/票数、制作人员、标签及标签剧透等级。
 - 年份读取官方 `complete` 发行版的最早日期，排除 `trial` 体验版与 `partial` 部分版。
 - 年龄判断读取官方完整发行版的 `minage` 与 `has_ero`：有成人内容证据时归为限制级；没有成人内容且存在 `0–15` 岁分级时归到全年龄侧；只有 18+ 分级时归为限制级；证据不足保持未知。

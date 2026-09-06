@@ -1,0 +1,49 @@
+name: 缺陷报告
+description: 游戏、同步、部署或文档中的错误
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        报告安全漏洞请走 [SECURITY.md](https://github.com/komariChikaA/gal-yiba/blob/main/SECURITY.md)，不要把 token 或利用细节贴在这里。
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么
+      description: 实际行为与你期望的行为
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 影响范围
+      options:
+        - 前端 / 交互
+        - 房间与联机
+        - 题库同步 / 映射
+        - 部署 / Docker
+        - 文档
+        - 其它
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 版本或提交
+      description: 分支名、commit，或 GitHub Pages 构建时间
+  - type: textarea
+    id: extra
+    attributes:
+      label: 其它信息
+      description: 日志、截图、浏览器或 Node 版本。请打码密钥。

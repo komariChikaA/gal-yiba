@@ -2411,16 +2411,48 @@ export function App() {
 
       <footer>
         <b>旮一把</b>
-        <span>
-          第一阶段原型 · 数据与规则均可追踪 ·{" "}
-          <a
-            href="https://github.com/komariChikaA/gal-yiba"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub 项目源码 ↗
-          </a>
-        </span>
+        <div className="footer-copy">
+          <span>
+            <a
+              href="https://github.com/komariChikaA/gal-yiba/blob/main/LICENSE"
+              target="_blank"
+              rel="noreferrer"
+            >
+              MIT License
+            </a>
+            {" · 数据与规则均可追踪 · "}
+            <a
+              href="https://github.com/komariChikaA/gal-yiba"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub 项目源码 ↗
+            </a>
+          </span>
+          <small className="footer-legal">
+            Contains information from{" "}
+            <a href="https://vndb.org/" target="_blank" rel="noreferrer">
+              VNDB
+            </a>
+            , which is made available here under the{" "}
+            <a
+              href="https://opendatacommons.org/licenses/odbl/1-0/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open Database License (ODbL)
+            </a>
+            . Bangumi 条目数据遵循
+            <a
+              href="https://bgm.tv/about/copyright"
+              target="_blank"
+              rel="noreferrer"
+            >
+              开发者平台使用协议
+            </a>
+            。
+          </small>
+        </div>
       </footer>
 
       {showLeaderboard && (
