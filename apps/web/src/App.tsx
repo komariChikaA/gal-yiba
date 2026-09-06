@@ -2413,7 +2413,14 @@ export function App() {
         <b>旮一把</b>
         <div className="footer-copy">
           <span>
-            MIT License · 数据与规则均可追踪 ·{" "}
+            <a
+              href="https://github.com/komariChikaA/gal-yiba/blob/main/LICENSE"
+              target="_blank"
+              rel="noreferrer"
+            >
+              MIT License
+            </a>
+            {" · 数据与规则均可追踪 · "}
             <a
               href="https://github.com/komariChikaA/gal-yiba"
               target="_blank"

@@ -1104,6 +1104,7 @@ footer {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
+  flex-wrap: wrap;
   gap: 24px;
   color: #726a63;
   font-size: 12px;
@@ -1119,7 +1120,9 @@ footer a {
 }
 .footer-copy {
   text-align: right;
-  max-width: 46rem;
+  max-width: min(46rem, 100%);
+  min-width: 0;
+  flex: 1 1 16rem;
 }
 .footer-legal {
   display: block;
@@ -1127,6 +1130,8 @@ footer a {
   font-size: 11px;
   line-height: 1.55;
   font-weight: 500;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* Warm anime theme ------------------------------------------------------- */
@@ -1851,6 +1856,7 @@ footer b {
     display: block;
     margin-top: 6px;
     text-align: left;
+    max-width: 100%;
   }
 }
 
